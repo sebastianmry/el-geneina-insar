@@ -50,27 +50,40 @@ Remote sensing cannot stop atrocities, but public satellite data provides an
 objective, independent record of destruction when ground access is barred.
 
 Conflict chronology, measured as the share of built-up grid cells per epoch
-(50 m grid). All classes are drift-corrected for rainy-season decorrelation, a
-single consistent scale; the higher raw values are reported as an upper bound
-under Baseline robustness:
+(50 m grid). The coherence is estimated on both polarisations and fused (mean of
+the per-channel relative loss, see Dual-polarisation analysis). All classes are
+drift-corrected for rainy-season decorrelation, a single consistent scale; the
+higher raw values are reported as an upper bound under Baseline robustness:
 
 | Epoch | Period | Affected built-up area | Severe |
 | :--- | :--- | ---: | ---: |
 | E1 | Mar-Apr 2023 | pre-conflict baseline | - |
-| E2a | Apr-May 2023 | 16 % (initial offensive and arson) | 0.2 % |
-| E2b | Jun 2023 | 18 % (peak destruction) | 0.1 % |
-| E3 | Jul 2023 | 16 % (post-peak, RSF control) | 0.0 % |
+| E2a | Apr-May 2023 | 12 % (initial offensive and arson) | 0.1 % |
+| E2b | Jun 2023 | 21 % (peak destruction phase) | 0.0 % |
+| E3 | Jul 2023 | 24 % (continued change, RSF control) | 0.0 % |
+
+**Each epoch measures active change within its own window, not cumulative
+destruction.** Coherence is computed on within-epoch image pairs, so it records
+where the surface was *changing* during that window relative to the stable
+pre-conflict reference. A building flattened in June becomes stable rubble by
+July, so its July (E3) coherence recovers rather than staying low. The numbers
+are therefore not a running total: of the cells affected in June, about a tenth
+(11 %) are no longer flagged in July, and 61 % of the July-affected cells are new.
+E3 reading slightly above E2b reflects continued surface change in July (ongoing
+activity as the RSF consolidated control, plus residual rain the unbuilt-based
+correction does not fully remove over built-up ground), not June damage carried
+forward.
 
 Across the 137,545 quality-controlled HOT OSM building footprints
-([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal is
-stable near 16 to 18 % of built-up cells across all three epochs, with June (E2b)
-the peak. The dry-season first offensive (E2a) is the most robust figure because
-the seasonal correction barely moves it. The corrected severe class is small once
-the seasonal signal is removed: destruction past 60 % excess coherence loss is
-rare and spatially clustered rather than pervasive. The raw uncorrected extent
-runs to about two thirds, but that is dominated by rainy-season decorrelation
-rather than destruction, and high-resolution optical imagery shows nothing near
-that extent (see Optical cross-validation).
+([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal runs
+from 12 % during the dry-season first offensive (E2a) to about 21 to 24 % for the
+June and July epochs. The dry-season E2a figure is the single most robust value
+because the seasonal correction barely moves it. The corrected severe class is
+small once the seasonal signal is removed: destruction past 60 % excess coherence
+loss is rare and spatially clustered rather than pervasive. The raw uncorrected
+extent runs to about two thirds, but that is dominated by rainy-season
+decorrelation rather than destruction, and high-resolution optical imagery shows
+nothing near that extent (see Optical cross-validation).
 
 **Interpretation.** InSAR is weather-independent but needs careful reading.
 Environmental factors such as sand drift or heavy rain can cause decorrelation
@@ -131,12 +144,12 @@ the severity gradient.
 
 | Epoch | 30 m | 50 m | 100 m |
 | :--- | ---: | ---: | ---: |
-| E2a | 20.5 / 0.7 | 17.0 / 0.2 | 8.8 / 0.1 |
-| E2b | 63.7 / 8.1 | 67.1 / 4.1 | 74.8 / 0.4 |
-| E3 | 63.9 / 3.0 | 67.6 / 1.2 | 72.8 / 0.0 |
+| E2a | 18.1 / 0.1 | 13.6 / 0.1 | 5.7 / 0.1 |
+| E2b | 59.4 / 2.0 | 61.4 / 0.5 | 66.8 / 0.0 |
+| E3 | 62.2 / 0.5 | 64.9 / 0.1 | 69.1 / 0.0 |
 
-*Affected % / severe % of built-up cells per epoch. Built-up cells: 30,005 (30 m),
-13,152 (50 m), 3,925 (100 m).*
+*Affected % / severe % of built-up cells per epoch (raw VV+VH fused loss, before
+drift correction). Built-up cells: 30,005 (30 m), 13,152 (50 m), 3,925 (100 m).*
 
 Cells outside the area of valid coherence are excluded rather than bridged.
 
@@ -154,6 +167,7 @@ Sentinel-1 SLC (.SAFE.zip)
   run_insar.py         Back-Geocoding -> Interferogram + Coherence ->
                        TOPSAR-Deburst -> Goldstein filter -> Subset (AOI) ->
                        Terrain-Correction  ->  coherence GeoTIFF per pair
+                       and polarisation (VV + VH)
         |
         v
   check_quality.py     validate projection, bands and valid-pixel counts
@@ -174,6 +188,8 @@ Sentinel-1 SLC (.SAFE.zip)
         v
   check_baseline.py            E1 reference stability + false-positive floor
   correct_baseline_drift.py    rainy-season correction from unbuilt reference
+                               (per-polarisation R_env, VV and VH fused)
+  compare_polarisations.py     VV/VH correlation + per-channel rain robustness
   validate_optical.py          Sentinel-2 dNBR cross-check (validation ceiling)
         |
         v
@@ -191,6 +207,31 @@ use the standard geospatial Python stack.
 ![Pre-conflict reference](assets/pre_conflict_reference.png)
 
 *Pre-conflict reference (E1): InSAR coherence per building before the conflict.*
+
+---
+
+## Dual-polarisation analysis
+
+The scenes are acquired in VV and VH, and the coherence is estimated on both
+channels. VV is the co-pol channel; VH is the cross-pol channel, dominated by
+volume scattering and therefore lower in absolute coherence. Two properties make
+the second channel worth processing (`compare_polarisations.py`):
+
+- **VH adds independent information.** Across built-up cells the VV and VH
+  coherence correlate only moderately (r roughly 0.4 to 0.6), so averaging the
+  two is genuine noise reduction rather than repeating one signal.
+- **VH is more robust to the rainy season.** The cross-pol channel decorrelates
+  far less than VV under the Sahel rains (see the per-polarisation R_env under
+  Baseline robustness), so it carries damage signal where VV is swamped by
+  seasonal noise.
+
+Because VH coherence sits systematically below VV, the channels are not averaged
+directly. Each is normalised against its own pre-conflict E1 baseline into a
+relative loss, and the two relative losses are then averaged (mean fusion). This
+runs through both the raw classification and the drift correction, so every
+reported figure is the fused VV+VH result.
+
+![Dual-polarisation diagnostic](assets/polarisation_diagnostic.png)
 
 ---
 
@@ -217,23 +258,35 @@ one.
 
 **Rainy-season drift correction** (`correct_baseline_drift.py`). The Sahel rains
 begin in June and lower coherence over bare ground regardless of the conflict.
-Estimated from stable unbuilt reference cells, the seasonal retention R_env is
-0.99 in May (E2a), 0.66 in June (E2b) and 0.70 in July (E3), so roughly a third
-of the June scene-wide coherence drop is seasonal rather than damage. Removing
-that expectation from the built-up cells changes the picture sharply:
+The seasonal retention R_env is estimated from stable unbuilt reference cells,
+separately per polarisation, and this is where the cross-pol channel earns its
+place: VH decorrelates far less than VV in the rain.
+
+| Epoch | R_env VV | R_env VH |
+| :--- | ---: | ---: |
+| E2a (May) | 0.99 (1 % loss) | 0.99 (1 % loss) |
+| E2b (Jun) | 0.66 (34 % loss) | 0.91 (9 % loss) |
+| E3 (Jul) | 0.70 (30 % loss) | 0.96 (4 % loss) |
+
+About a third of the June and July VV coherence drop is seasonal rather than
+damage, but the VH channel barely moves. Correcting each channel against its own
+retention and fusing the result removes the season while keeping the rain-robust
+VH signal:
 
 | Epoch | Raw affected | Drift-corrected |
 | :--- | ---: | ---: |
-| E2a | 17.0 % | 15.7 % |
-| E2b | 67.1 % | 18.3 % |
-| E3 | 67.6 % | 15.6 % |
+| E2a | 13.6 % | 12.2 % |
+| E2b | 61.4 % | 20.6 % |
+| E3 | 64.9 % | 24.3 % |
 
 Bare soil decorrelates more readily than the hard targets of a built environment,
 so R_env is a strong, conservative estimate of the seasonal effect. Read the raw
 figures as an upper bound and the corrected figures as a lower bound: the true
-damage extent lies between them. Once the season is removed, the affected extent
-is stable near 16 % of built-up cells across all three epochs, with June (E2b)
-still the peak.
+damage extent lies between them. Once the season is removed, the corrected
+affected extent runs from 12 % in the dry-season offensive (E2a) to about 21 to
+24 % for the June and July epochs. The July (E3) figure is dominated by new
+within-window change rather than June damage carried forward (see the chronology
+note above), so it should not be read as a cumulative total.
 
 ---
 
@@ -299,13 +352,14 @@ config.py               Single source of truth: paths, AOI, epochs, pairs, param
 snap.py                 ESA SNAP / esa_snappy bridge wrapper
 
 preprocess.py           Stage 1: TOPSAR-Split + Apply-Orbit-File (+ subswath/burst helpers)
-run_insar.py            Stage 2: coherence GeoTIFF per pair
+run_insar.py            Stage 2: coherence GeoTIFF per pair and polarisation (VV+VH)
 check_quality.py        GeoTIFF quality check
 clean_buildings.py      Stage 0: HOT OSM footprint quality control + removal report
-classify_damage.py      Stage 3: shared coherence-sampling + damage-class logic
+classify_damage.py      Stage 3: shared coherence-sampling + damage-class logic (VV+VH fusion)
 classify_grid.py        Stage 3b: 50 m grid classification + sensitivity table
 check_baseline.py       Stage 3c: E1 reference stability + false-positive floor
-correct_baseline_drift.py  Stage 3c: rainy-season drift correction (unbuilt ref)
+correct_baseline_drift.py  Stage 3c: rainy-season drift correction (per-pol R_env, VV+VH fused)
+compare_polarisations.py   Stage 3e: VV/VH correlation + per-channel rain robustness
 validate_optical.py     Stage 3d: Sentinel-2 dNBR cross-validation (streamed COGs)
 
 viz_common.py           Shared loading/clipping helpers for figures
@@ -360,13 +414,14 @@ Then run the stages in order:
 
 ```bash
 python preprocess.py        # TOPSAR-Split + orbit (needs SNAP + the .SAFE scenes)
-python run_insar.py         # coherence GeoTIFFs (slow: ~20-40 min per pair)
+python run_insar.py         # coherence GeoTIFFs, VV+VH (slow: ~20-40 min per job)
 python check_quality.py     # validate outputs
 python clean_buildings.py   # footprint quality control + removal report
 python classify_grid.py     # 50 m grid classification + sensitivity table
 python validate_optical.py  # Sentinel-2 dNBR cross-check (needs internet)
 python check_baseline.py        # E1 reference stability + false-positive floor
-python correct_baseline_drift.py  # rainy-season drift correction
+python correct_baseline_drift.py  # rainy-season drift correction (VV+VH fused)
+python compare_polarisations.py   # VV/VH diagnostic figure
 
 python viz_damage_overview.py
 python viz_supplementary.py
