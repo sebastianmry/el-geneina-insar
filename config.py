@@ -405,9 +405,10 @@ COLOR_SUB = "#b0b0cc"      # subtitles, captions, metadata
 COLOR_PANEL = "#1a1a30"    # legend and inset box fill
 COLOR_LINE = "#3a3a5c"     # axes spines and dividers
 
-# Polarisation channels in the dual-pol diagnostic figure.
-COLOR_VV = "#4ea1d3"       # primary co-pol channel
-COLOR_VH = "#f5c518"       # cross-pol channel (matches the light-damage gold)
+# Polarisation channels in the dual-pol diagnostic figure. Teal and lavender
+# both read on the dark backdrop and stay clear of the warm damage ramp.
+COLOR_VV = "#4ecdc4"       # primary co-pol channel (teal)
+COLOR_VH = "#b388eb"       # cross-pol channel (lavender)
 
 # Damage class styling: 0 = none, 1 = light, 2 = moderate, 3 = severe.
 # The no-damage class is a muted grey so it recedes on the dark backdrop, while

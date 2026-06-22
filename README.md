@@ -60,19 +60,30 @@ higher raw values are reported as an upper bound under Baseline robustness:
 | E1 | Mar-Apr 2023 | pre-conflict baseline | - |
 | E2a | Apr-May 2023 | 12 % (initial offensive and arson) | 0.1 % |
 | E2b | Jun 2023 | 21 % (peak destruction phase) | 0.0 % |
-| E3 | Jul 2023 | 24 % (damage persists, RSF control) | 0.0 % |
+| E3 | Jul 2023 | 24 % (continued change, RSF control) | 0.0 % |
+
+**Each epoch measures active change within its own window, not cumulative
+destruction.** Coherence is computed on within-epoch image pairs, so it records
+where the surface was *changing* during that window relative to the stable
+pre-conflict reference. A building flattened in June becomes stable rubble by
+July, so its July (E3) coherence recovers rather than staying low. The numbers
+are therefore not a running total: of the cells affected in June, about a tenth
+(11 %) are no longer flagged in July, and 61 % of the July-affected cells are new.
+E3 reading slightly above E2b reflects continued surface change in July (ongoing
+activity as the RSF consolidated control, plus residual rain the unbuilt-based
+correction does not fully remove over built-up ground), not June damage carried
+forward.
 
 Across the 137,545 quality-controlled HOT OSM building footprints
-([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal rises
+([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal runs
 from 12 % during the dry-season first offensive (E2a) to about 21 to 24 % for the
-June and July epochs, where it persists rather than recedes. The dry-season E2a
-figure is the most robust because the seasonal correction barely moves it. The
-corrected severe class is small once the seasonal signal is removed: destruction
-past 60 % excess coherence loss is rare and spatially clustered rather than
-pervasive. The raw uncorrected extent runs to about two thirds, but that is
-dominated by rainy-season decorrelation rather than destruction, and
-high-resolution optical imagery shows nothing near that extent (see Optical
-cross-validation).
+June and July epochs. The dry-season E2a figure is the single most robust value
+because the seasonal correction barely moves it. The corrected severe class is
+small once the seasonal signal is removed: destruction past 60 % excess coherence
+loss is rare and spatially clustered rather than pervasive. The raw uncorrected
+extent runs to about two thirds, but that is dominated by rainy-season
+decorrelation rather than destruction, and high-resolution optical imagery shows
+nothing near that extent (see Optical cross-validation).
 
 **Interpretation.** InSAR is weather-independent but needs careful reading.
 Environmental factors such as sand drift or heavy rain can cause decorrelation
@@ -273,7 +284,9 @@ so R_env is a strong, conservative estimate of the seasonal effect. Read the raw
 figures as an upper bound and the corrected figures as a lower bound: the true
 damage extent lies between them. Once the season is removed, the corrected
 affected extent runs from 12 % in the dry-season offensive (E2a) to about 21 to
-24 % for the June and July epochs, where the damage persists rather than recedes.
+24 % for the June and July epochs. The July (E3) figure is dominated by new
+within-window change rather than June damage carried forward (see the chronology
+note above), so it should not be read as a cumulative total.
 
 ---
 
