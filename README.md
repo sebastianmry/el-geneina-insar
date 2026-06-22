@@ -290,8 +290,6 @@ each call is, every built-up cell also carries a signal-to-noise z-score
 error, estimated from the within-cell spatial spread of coherence. A high z means
 the drop is large relative to the local variability.
 
-![Damage confidence](assets/damage_confidence.png)
-
 Two things follow. First, the fixed thresholds are not arbitrary: the cells the
 20 % rule marks as affected are essentially all statistically confident
 (z >= 1.6 for 100 %, z >= 2.3 for 97 to 99 %), while non-affected cells sit at

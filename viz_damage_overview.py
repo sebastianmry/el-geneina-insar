@@ -101,7 +101,7 @@ def _add_stat_bar(fig, ax, affected_pct):
     y = position.y0 - 0.005 - bar_height
 
     fig.add_artist(plt.Rectangle((position.x0, y), position.width, bar_height,
-                                 transform=fig.transFigure, facecolor=config.COLOR_PANEL,
+                                 transform=fig.transFigure, facecolor=config.COLOR_BG,
                                  clip_on=False, zorder=5))
     fig.add_artist(plt.Rectangle((position.x0, y), position.width * affected_pct / 100,
                                  bar_height, transform=fig.transFigure,
@@ -124,8 +124,7 @@ def _add_legend(fig):
     legend = fig.legend(handles=handles,
                         title="Damage class  (relative coherence loss)",
                         title_fontsize=9, fontsize=9, loc="lower center", ncol=4,
-                        frameon=True, framealpha=0.9, facecolor=config.COLOR_PANEL,
-                        edgecolor=config.COLOR_LINE, labelcolor=config.COLOR_FG,
+                        frameon=False, labelcolor=config.COLOR_FG,
                         bbox_to_anchor=(0.5, 0.02))
     legend.get_title().set_color(config.COLOR_FG)
 

@@ -81,8 +81,9 @@ def main() -> None:
     norm = Normalize(vmin=0.0, vmax=Z_MAX)
     fig, axes = plt.subplots(1, 3, figsize=(21, 9), facecolor=config.COLOR_BG)
     fig.subplots_adjust(left=0.01, right=0.99, top=0.93, bottom=0.12, wspace=0.03)
-    fig.suptitle("Damage confidence (signal-to-noise)  -  El Geneina 2023",
-                 color=config.COLOR_FG, fontsize=16, fontweight="bold")
+    fig.text(0.5, 0.965, "Damage confidence (signal-to-noise)  -  El Geneina 2023",
+             ha="center", va="center", color=config.COLOR_FG,
+             fontsize=16, fontweight="bold")
     for ax, epoch in zip(axes, config.DAMAGE_EPOCHS):
         plot_panel(ax, grid_gdf, reference, epoch, norm)
 

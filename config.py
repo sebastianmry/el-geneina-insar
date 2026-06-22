@@ -421,7 +421,7 @@ COLOR_LINE = "#3a3a5c"     # axes spines and dividers
 
 # Polarisation channels in the dual-pol diagnostic figure. Teal and lavender
 # both read on the dark backdrop and stay clear of the warm damage ramp.
-COLOR_VV = "#4ecdc4"       # primary co-pol channel (teal)
+COLOR_VV = "#2d4ea8"       # primary co-pol channel (dark blue, matched to magenta)
 COLOR_VH = "#b04a9e"       # cross-pol channel (magenta-violet)
 
 # Damage class styling: 0 = none, 1 = light, 2 = moderate, 3 = severe.
