@@ -40,6 +40,12 @@ natural decorrelation.
   direction (DESCENDING) and polarization set (VV+VH) is used across all epochs,
   so coherence differences reflect ground change rather than acquisition
   geometry.
+- **Dual-polarisation fusion:** coherence is estimated on both VV and VH. Because
+  VH coherence sits systematically below VV, the channels are not averaged
+  directly; each is normalised against its own E1 baseline into a relative loss
+  and the two losses are averaged. VV and VH correlate only moderately (r about
+  0.4 to 0.6), so the fusion reduces noise, and VH is markedly more robust to the
+  rainy-season decorrelation (`compare_polarisations.py`).
 
 ## Integrity rules
 
@@ -69,8 +75,10 @@ natural decorrelation.
 - Rainy-season decorrelation (Sahel rains from June) inflates the E2b and E3
   affected figures; those epochs read as an upper bound. The drift correction
   (`correct_baseline_drift.py`) brackets this with a lower bound estimated from
-  stable unbuilt reference cells. The pre-conflict reference itself is checked
-  for stability in `check_baseline.py`.
+  stable unbuilt reference cells, per polarisation. The cross-pol VH channel is
+  far less affected by the rain (R_env about 0.9 vs 0.66 for VV at the June peak),
+  so the fused result keeps damage signal where VV alone is swamped. The
+  pre-conflict reference itself is checked for stability in `check_baseline.py`.
 - The 12-day revisit means sub-epoch timing of individual events cannot be
   resolved.
 - Optical validation has a ceiling here (`validate_optical.py`). A Sentinel-2
@@ -82,8 +90,11 @@ natural decorrelation.
 
 ## Possible extensions
 
-- Incorporate VH alongside VV for the coherence estimate.
+- Replace the fixed damage thresholds with a per-cell significance test against
+  the pre-conflict coherence stack (mean and variance of the E1 pairs), which
+  also yields an uncertainty layer.
+- Add the SAR amplitude / intensity log-ratio as a second, incoherent change
+  channel; it responds to structural change and is less drift-sensitive.
 - Add an ascending-orbit track to reduce layover/shadow ambiguity.
-- Uncertainty layer from intra-epoch coherence variance.
 - Deep-learning segmentation (e.g. U-Net on Sentinel-1) to suppress
   environmental false positives, planned as a separate project.

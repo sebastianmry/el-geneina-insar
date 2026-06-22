@@ -22,11 +22,19 @@ import config
 from snap import GPF, HashMap, Integer, JavaSystem, ProductArray, ProductIO, jpy
 
 
-def process_pair(ref_date: str, sec_date: str, label: str, output_dir: Path) -> Path | None:
-    """Run the complete InSAR graph for one coherence pair and write a GeoTIFF."""
-    output_tif = output_dir / f"{label}.tif"
+def process_pair(
+    ref_date: str, sec_date: str, label: str, polarisation: str, output_dir: Path
+) -> Path | None:
+    """Run the complete InSAR graph for one coherence pair and write a GeoTIFF.
+
+    The graph is run once per polarisation. Back-Geocoding and the Interferogram
+    operator carry both polarisations through; TOPSAR-Deburst then keeps the
+    requested channel, so each call writes a single-polarisation coherence raster
+    (config.coh_tif_name).
+    """
+    output_tif = output_dir / config.coh_tif_name(label, polarisation)
     if output_tif.exists():
-        print(f"  {label}: already present, skipped")
+        print(f"  {label} [{polarisation}]: already present, skipped")
         return output_tif
 
     ref_dim = config.SPLIT_DIR / f"split_orbit_{ref_date}.dim"
@@ -68,10 +76,10 @@ def process_pair(ref_date: str, sec_date: str, label: str, output_dir: Path) -> 
     ifg_params.put("demName", config.DEM_NAME)
     interferogram = GPF.createProduct("Interferogram", ifg_params, back_geocoded)
 
-    # 3. TOPSAR Deburst.
-    print("  TOPSAR-Deburst...")
+    # 3. TOPSAR Deburst (keep the requested polarisation only).
+    print(f"  TOPSAR-Deburst ({polarisation})...")
     deburst_params = HashMap()
-    deburst_params.put("selectedPolarisations", "VV")
+    deburst_params.put("selectedPolarisations", polarisation)
     deburst = GPF.createProduct("TOPSAR-Deburst", deburst_params, interferogram)
 
     # 4. Goldstein phase filtering.
@@ -99,8 +107,9 @@ def process_pair(ref_date: str, sec_date: str, label: str, output_dir: Path) -> 
     terrain_corrected = GPF.createProduct("Terrain-Correction", tc_params, subset)
 
     # 7. Write GeoTIFF.
-    print(f"  Writing: {label}.tif")
-    ProductIO.writeProduct(terrain_corrected, str(output_dir / label), "GeoTIFF-BigTIFF")
+    output_base = output_tif.with_suffix("")
+    print(f"  Writing: {output_tif.name}")
+    ProductIO.writeProduct(terrain_corrected, str(output_base), "GeoTIFF-BigTIFF")
 
     for disposable in (
         terrain_corrected, subset, filtered, deburst,
@@ -117,25 +126,33 @@ def process_pair(ref_date: str, sec_date: str, label: str, output_dir: Path) -> 
 def main() -> None:
     config.ensure_processing_dirs()
 
+    jobs = [
+        (ref_date, sec_date, label, polarisation)
+        for ref_date, sec_date, label in config.COH_PAIRS
+        for polarisation in config.COH_POLARISATIONS
+    ]
+
     print("=" * 60)
     print("Stage 2 - InSAR pipeline (Back-Geocoding -> TC -> GeoTIFF)")
-    print(f"Pairs:  {len(config.COH_PAIRS)}")
+    print(f"Pairs:        {len(config.COH_PAIRS)}")
+    print(f"Polarisations:{config.COH_POLARISATIONS}")
+    print(f"Jobs:         {len(jobs)} (one coherence raster each)")
     print(f"Input:  {config.SPLIT_DIR}")
     print(f"Output: {config.COH_DIR}")
-    print("Note: roughly 20-40 min per pair - best run overnight")
+    print("Note: roughly 20-40 min per job - best run overnight")
     print("=" * 60)
 
     processed = 0
-    for index, (ref_date, sec_date, label) in enumerate(
-        tqdm(config.COH_PAIRS, desc="Total", unit="pair"), start=1
+    for index, (ref_date, sec_date, label, polarisation) in enumerate(
+        tqdm(jobs, desc="Total", unit="job"), start=1
     ):
-        print(f"\n[{index}/{len(config.COH_PAIRS)}] {label}")
+        print(f"\n[{index}/{len(jobs)}] {label} [{polarisation}]")
         start = datetime.now()
-        if process_pair(ref_date, sec_date, label, config.COH_DIR):
+        if process_pair(ref_date, sec_date, label, polarisation, config.COH_DIR):
             processed += 1
         print(f"  Elapsed: {(datetime.now() - start).seconds // 60} min")
 
-    print(f"\n{processed}/{len(config.COH_PAIRS)} pairs processed -> {config.COH_DIR}")
+    print(f"\n{processed}/{len(jobs)} jobs processed -> {config.COH_DIR}")
 
 
 if __name__ == "__main__":
