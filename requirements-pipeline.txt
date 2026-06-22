@@ -1,0 +1,21 @@
+# Full InSAR processing pipeline (preprocess.py, run_insar.py).
+#
+# The pipeline drives ESA SNAP through its Python bridge (esa_snappy / jpy).
+# These cannot be installed from PyPI alone - SNAP must be installed
+# separately and the Python bindings configured. See docs/DATA.md and:
+#   https://step.esa.int/main/download/snap-download/
+#   https://senbox.atlassian.net/wiki/spaces/SNAP/pages/19300362/How+to+use+the+SNAP+API+from+Python
+#
+# A dedicated conda environment is strongly recommended (GDAL + SNAP/Java):
+#   conda create -n insar python=3.11
+#   conda activate insar
+#   conda install -c conda-forge gdal rasterio geopandas
+#   (then configure esa_snappy against your local SNAP installation)
+
+# Included transitively by SNAP's Python bridge:
+# esa_snappy   (configured via snappy-conf, not pip)
+# jpy          (bundled with esa_snappy)
+
+gdal
+numpy
+tqdm

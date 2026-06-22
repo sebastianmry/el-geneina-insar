@@ -1,0 +1,65 @@
+# =============================================================================
+# Raw and intermediate geospatial data (re-downloadable / reproducible)
+# =============================================================================
+# Sentinel-1 SLC scenes (~8 GB each) - download from Copernicus, see docs/DATA.md
+safe/
+*.SAFE/
+*.SAFE.zip
+
+# SNAP / processing intermediates and outputs
+processed/
+*.dim
+*.data/
+*.img
+*.hdr
+
+# Building footprints (download from HOT OSM, see docs/DATA.md)
+buildings/
+*.gpkg
+*.shp
+*.dbf
+*.shx
+*.prj
+*.cpg
+
+# Local cache and run artifacts
+cache/
+*.log
+hs_err_pid*.log
+
+# Local working data and legacy archive (kept on disk, not version-controlled)
+visual/
+_legacy/
+
+# Large raster outputs
+*.tif
+*.tiff
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.env
+
+# =============================================================================
+# OS / editor
+# =============================================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# =============================================================================
+# Allow committed showcase assets and the AOI definition despite rules above
+# =============================================================================
+!assets/
+!assets/**
+!data/aoi/
+!data/aoi/*.geojson

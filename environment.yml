@@ -1,0 +1,24 @@
+# Conda environment for the analysis and visualization stages.
+#
+#   conda env create -f environment.yml
+#   conda activate insar
+#
+# This covers everything except the SNAP-based InSAR pipeline
+# (preprocess.py, run_insar.py). ESA SNAP and its Python bridge esa_snappy
+# are not available on conda-forge and must be installed and configured
+# separately. See docs/DATA.md and requirements-pipeline.txt.
+name: insar
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - geopandas
+  - rasterio
+  - gdal
+  - shapely
+  - pyproj
+  - matplotlib
+  - tqdm
+  - pip

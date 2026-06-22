@@ -1,0 +1,46 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "El Geneina (al-Junaynah) - SAR/InSAR AOI v4",
+        "area_estimate": "approx. 66 km2 (7.9 km x 8.3 km)",
+        "focus": "Krinding (W), city center, Hay Al Jebel (E)",
+        "not_included": "Ardamata (too far north) - possibly a separate AOI later",
+        "districts": {
+          "Krinding": "western edge - largest IDP camp, escape route",
+          "Masalit_quarter": "west/center - main target of RSF attacks",
+          "city_center": "center - market, governor's seat",
+          "Hay_Al_Jebel": "eastern edge - most severe fire damage",
+          "Sultan_House": "southeast - IDP area"
+        },
+        "conflict_reference": "Battle of Geneina, Apr-Jun 2023",
+        "satellite": "Sentinel-1A",
+        "product_type": "SLC",
+        "mode": "IW",
+        "polarisation": "VV+VH",
+        "orbit_direction": "DESCENDING",
+        "scenes": [
+          "20230319", "20230331", "20230412",
+          "20230424", "20230506",
+          "20230611", "20230623",
+          "20230705", "20230717", "20230729"
+        ],
+        "crs": "EPSG:4326"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [22.405, 13.415],
+            [22.480, 13.415],
+            [22.480, 13.490],
+            [22.405, 13.490],
+            [22.405, 13.415]
+          ]
+        ]
+      }
+    }
+  ]
+}

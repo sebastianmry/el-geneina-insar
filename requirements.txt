@@ -1,0 +1,14 @@
+# Analysis and visualization dependencies (post-processing of GeoTIFF outputs).
+# For the SNAP-based InSAR pipeline itself, see requirements-pipeline.txt.
+numpy
+geopandas
+rasterio
+exactextract
+shapely
+pyproj
+matplotlib
+tqdm
+# certifi supplies the CA bundle for streaming Sentinel-2 COGs over HTTPS
+# (validate_optical.py); the Windows certificate store can break Python's
+# default SSL context.
+certifi

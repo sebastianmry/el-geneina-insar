@@ -1,0 +1,9 @@
+# Normalize line endings: store text as LF in the repository.
+* text=auto eol=lf
+
+# Treat rendered assets as binary.
+*.png binary
+*.jpg binary
+*.gif binary
+*.tif binary
+*.gpkg binary
