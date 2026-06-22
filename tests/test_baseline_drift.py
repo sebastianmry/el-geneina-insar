@@ -55,6 +55,27 @@ def test_environmental_retention_from_unbuilt_cells():
     assert retention["E3"] == 1.0
 
 
+def _confidence_cells():
+    """One stable cell and one with a clear coherence drop, with spatial spread."""
+    enough = config.MIN_BUILDING_PIXELS
+    frame = {"building_count": [5, 5]}
+    for epoch in ["E1", *config.DAMAGE_EPOCHS]:
+        frame[f"n_{epoch}"] = [25.0, 25.0]
+        frame[f"coh_{epoch}"] = [1.0, 1.0]
+        frame[f"std_{epoch}"] = [0.10, 0.10]
+    frame["coh_E2b"] = [1.0, 0.5]   # second cell drops 0.5 against E1
+    return pd.DataFrame(frame)
+
+
+def test_confidence_high_for_clear_drop_zero_for_stable():
+    cells = _confidence_cells()
+    retention = {epoch: 1.0 for epoch in config.DAMAGE_EPOCHS}
+    correct_baseline_drift.add_confidence(cells, retention, config.MIN_BUILDING_PIXELS)
+    # Stable cell: no drop -> z ~ 0. Dropped cell: large signal-to-noise z.
+    assert abs(cells.loc[0, "z_E2b"]) < 1e-6
+    assert cells.loc[1, "z_E2b"] > config.Z_HIGH_CONFIDENCE
+
+
 def test_correction_removes_seasonal_loss():
     cells = _reference_cells()
     retention = {"E2a": 1.0, "E2b": 0.50, "E3": 1.0}

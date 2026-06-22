@@ -66,13 +66,14 @@ natural decorrelation.
 - **Reference-relative, not absolute:** damage is defined by relative coherence
   loss against E1, which controls for land-cover-specific baseline coherence.
 - **Per-epoch active change, not cumulative:** coherence is computed on
-  within-epoch image pairs, so each epoch records where the surface was changing
-  during that window, not a running total of destruction. A building flattened in
-  June becomes stable rubble by July and its July coherence recovers. About 11 %
-  of June-affected cells are no longer flagged in July, and 61 % of July-affected
-  cells are new, so E3 is dominated by continued July change (ongoing activity and
-  residual rain), not June damage carried forward. The dry-season E2a figure is
-  the single most robust value.
+  within-epoch image pairs, so each epoch records active change during that
+  window, not a running total. E3 reflects continued July change, not June damage
+  carried forward; the dry-season E2a figure is the single most robust value.
+- **Confidence reported, not just a class:** each cell carries a signal-to-noise
+  z-score (`uncertainty.py`) so calls are not presented as more certain than they
+  are. The thresholded affected extent coincides with statistical significance
+  (z >= 1.6), confirming the thresholds are not arbitrary. The z is a relative
+  confidence (pixels within a cell are spatially correlated), not a strict p-value.
 
 ## Caveats
 
@@ -98,9 +99,6 @@ natural decorrelation.
 
 ## Possible extensions
 
-- Replace the fixed damage thresholds with a per-cell significance test against
-  the pre-conflict coherence stack (mean and variance of the E1 pairs), which
-  also yields an uncertainty layer.
 - Add the SAR amplitude / intensity log-ratio as a second, incoherent change
   channel; it responds to structural change and is less drift-sensitive.
 - Add an ascending-orbit track to reduce layover/shadow ambiguity.

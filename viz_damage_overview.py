@@ -1,8 +1,9 @@
 """Damage overview figure: three-panel map of building damage per epoch.
 
 Renders E2a / E2b / E3 side by side, colored by damage class, over the faded
-reference coherence raster. The affected and severe percentages shown in the
-bars are computed from the classification, not hardcoded.
+reference coherence raster. The affected percentage shown in the bar is computed
+from the classification, not hardcoded. The severe share is near zero after the
+drift correction, so it is reported in the README rather than as an empty bar.
 
     python viz_damage_overview.py
 """
@@ -45,9 +46,9 @@ def main() -> None:
              fontsize=16, fontweight="bold")
 
     for ax, epoch in zip(axes, config.DAMAGE_EPOCHS):
-        affected_pct, severe_pct = viz_common.damage_percentages(
+        affected_pct, _ = viz_common.damage_percentages(
             grid_gdf, epoch, column_prefix="damagec")
-        _draw_panel(fig, ax, plot_gdf, reference, epoch, affected_pct, severe_pct)
+        _draw_panel(fig, ax, plot_gdf, reference, epoch, affected_pct)
 
     _add_legend(fig)
 
@@ -57,10 +58,10 @@ def main() -> None:
     print(f"Saved: {output_path}")
 
 
-def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct, severe_pct):
-    """Render a single epoch panel with its damage classes and stat bars.
+def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct):
+    """Render a single epoch panel with its damage classes and the affected bar.
 
-    The percentages are the drift-corrected affected and severe shares.
+    The percentage is the drift-corrected affected share.
     """
     ax.set_facecolor(config.COLOR_BG)
     viz_common.draw_coherence_backdrop(ax, reference, alpha=0.30)
@@ -90,34 +91,27 @@ def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct, severe_p
     ax.set_title(f"{epoch}  {PERIOD_LABELS[epoch]}", color=config.COLOR_FG,
                  fontsize=11, fontweight="bold", pad=8)
 
-    _add_stat_bars(fig, ax, affected_pct, severe_pct)
+    _add_stat_bar(fig, ax, affected_pct)
 
 
-def _add_stat_bars(fig, ax, affected_pct, severe_pct):
-    """Draw the drift-corrected affected and severe percentage bars beneath a panel."""
+def _add_stat_bar(fig, ax, affected_pct):
+    """Draw the drift-corrected affected percentage bar beneath a panel."""
     position = ax.get_position()
     bar_height = 0.013
-    gap = 0.004
-    y_top = position.y0 - 0.005
+    y = position.y0 - 0.005 - bar_height
 
-    bars = [
-        (affected_pct, "#e07b39", "Affected", 0),
-        (severe_pct, "#d62728", "Severe", 1),
-    ]
-    for index, (value_pct, color, name, decimals) in enumerate(bars):
-        y = y_top - index * (bar_height + gap) - bar_height
-        fig.add_artist(plt.Rectangle((position.x0, y), position.width, bar_height,
-                                     transform=fig.transFigure, facecolor=config.COLOR_PANEL,
-                                     clip_on=False, zorder=5))
-        fig.add_artist(plt.Rectangle((position.x0, y), position.width * value_pct / 100,
-                                     bar_height, transform=fig.transFigure,
-                                     facecolor=color, clip_on=False, zorder=6))
-        label = f"{name}  {value_pct:.{decimals}f}%"
-        fig.text(position.x0 + 0.005, y + bar_height + 0.002, label,
-                 transform=fig.transFigure, color=config.COLOR_FG, fontsize=7.5,
-                 fontweight="bold", va="bottom",
-                 path_effects=[pe.withStroke(linewidth=1.5, foreground=config.COLOR_BG)],
-                 zorder=8)
+    fig.add_artist(plt.Rectangle((position.x0, y), position.width, bar_height,
+                                 transform=fig.transFigure, facecolor=config.COLOR_PANEL,
+                                 clip_on=False, zorder=5))
+    fig.add_artist(plt.Rectangle((position.x0, y), position.width * affected_pct / 100,
+                                 bar_height, transform=fig.transFigure,
+                                 facecolor="#e07b39", clip_on=False, zorder=6))
+    label = f"Affected  {affected_pct:.0f}%"
+    fig.text(position.x0 + 0.005, y + bar_height + 0.002, label,
+             transform=fig.transFigure, color=config.COLOR_FG, fontsize=7.5,
+             fontweight="bold", va="bottom",
+             path_effects=[pe.withStroke(linewidth=1.5, foreground=config.COLOR_BG)],
+             zorder=8)
 
 
 def _add_legend(fig):

@@ -62,16 +62,9 @@ higher raw values are reported as an upper bound under Baseline robustness:
 | E2b | Jun 2023 | 21 % (peak destruction phase) | 0.0 % |
 | E3 | Jul 2023 | 24 % (continued change, RSF control) | 0.0 % |
 
-**Each epoch measures active change within its own window, not cumulative
-destruction.** Coherence is computed on within-epoch image pairs, so it records
-where the surface was *changing* during that window relative to the stable
-pre-conflict reference. A building flattened in June becomes stable rubble by
-July, so its July (E3) coherence recovers rather than staying low. The numbers
-are therefore not a running total: of the cells affected in June, about a tenth
-(11 %) are no longer flagged in July, and 61 % of the July-affected cells are new.
-E3 reading slightly above E2b reflects continued surface change in July (ongoing
-activity as the RSF consolidated control, plus residual rain the unbuilt-based
-correction does not fully remove over built-up ground), not June damage carried
+Each epoch measures active surface change within its own window against the
+pre-conflict reference, not a cumulative total, so E3 reflects continued July
+change (ongoing activity plus residual rain) rather than June damage carried
 forward.
 
 Across the 137,545 quality-controlled HOT OSM building footprints
@@ -190,6 +183,7 @@ Sentinel-1 SLC (.SAFE.zip)
   correct_baseline_drift.py    rainy-season correction from unbuilt reference
                                (per-polarisation R_env, VV and VH fused)
   compare_polarisations.py     VV/VH correlation + per-channel rain robustness
+  uncertainty.py               per-cell damage confidence (signal-to-noise z)
   validate_optical.py          Sentinel-2 dNBR cross-check (validation ceiling)
         |
         v
@@ -284,9 +278,29 @@ so R_env is a strong, conservative estimate of the seasonal effect. Read the raw
 figures as an upper bound and the corrected figures as a lower bound: the true
 damage extent lies between them. Once the season is removed, the corrected
 affected extent runs from 12 % in the dry-season offensive (E2a) to about 21 to
-24 % for the June and July epochs. The July (E3) figure is dominated by new
-within-window change rather than June damage carried forward (see the chronology
-note above), so it should not be read as a cumulative total.
+24 % for the June and July epochs.
+
+---
+
+## Damage confidence
+
+The classification uses fixed relative-loss thresholds. To show how trustworthy
+each call is, every built-up cell also carries a signal-to-noise z-score
+(`uncertainty.py`): the drift-corrected coherence drop divided by its standard
+error, estimated from the within-cell spatial spread of coherence. A high z means
+the drop is large relative to the local variability.
+
+![Damage confidence](assets/damage_confidence.png)
+
+Two things follow. First, the fixed thresholds are not arbitrary: the cells the
+20 % rule marks as affected are essentially all statistically confident
+(z >= 1.6 for 100 %, z >= 2.3 for 97 to 99 %), while non-affected cells sit at
+z near 0. The threshold extent and the significant extent coincide. Second, there
+is a confidence gradient within the affected area (median z about 4.3, rising past
+15 in the core), so the map distinguishes a high-confidence damage core from
+marginal edges. Pixels in a cell are spatially correlated, so z reads as a
+relative confidence rather than a strict p-value; the dominant uncertainties
+remain the seasonal bracket above and the baseline floor.
 
 ---
 
@@ -336,12 +350,12 @@ checks above. Full numbers: [docs/OPTICAL_VALIDATION.md](docs/OPTICAL_VALIDATION
   underlying resolution still cannot characterise an isolated 15 m2 structure on
   its own.
 
-**Future work.** Beyond the rainy-season correction, the natural extensions are
-an ascending-orbit track to reduce layover ambiguity, an uncertainty layer from
-intra-epoch coherence variance, and a deep-learning segmentation step (for
-example a U-Net on Sentinel-1) to suppress environmental false positives. The
-deep-learning direction is planned as a separate project rather than part of this
-pipeline.
+**Future work.** Beyond the dual-pol fusion, drift correction and confidence
+layer already in place, the natural extensions are a SAR amplitude (intensity
+log-ratio) channel to complement coherence, an ascending-orbit track to reduce
+layover ambiguity, and a deep-learning segmentation step (for example a U-Net on
+Sentinel-1) to suppress environmental false positives. The deep-learning
+direction is planned as a separate project rather than part of this pipeline.
 
 ---
 
@@ -360,6 +374,7 @@ classify_grid.py        Stage 3b: 50 m grid classification + sensitivity table
 check_baseline.py       Stage 3c: E1 reference stability + false-positive floor
 correct_baseline_drift.py  Stage 3c: rainy-season drift correction (per-pol R_env, VV+VH fused)
 compare_polarisations.py   Stage 3e: VV/VH correlation + per-channel rain robustness
+uncertainty.py          Stage 3f: per-cell damage confidence map (signal-to-noise z)
 validate_optical.py     Stage 3d: Sentinel-2 dNBR cross-validation (streamed COGs)
 
 viz_common.py           Shared loading/clipping helpers for figures
@@ -422,6 +437,7 @@ python validate_optical.py  # Sentinel-2 dNBR cross-check (needs internet)
 python check_baseline.py        # E1 reference stability + false-positive floor
 python correct_baseline_drift.py  # rainy-season drift correction (VV+VH fused)
 python compare_polarisations.py   # VV/VH diagnostic figure
+python uncertainty.py             # per-cell damage confidence map
 
 python viz_damage_overview.py
 python viz_supplementary.py
