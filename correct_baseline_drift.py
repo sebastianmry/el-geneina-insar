@@ -149,6 +149,55 @@ def add_corrected_classes(
         grid_gdf[f"damagec_{epoch}"] = damage_class
 
 
+def _confidence_z(grid_gdf, epoch: str, epoch_retention, polarisations: list[str]):
+    """Signal-to-noise z of the drift-corrected drop for one epoch.
+
+    z = (expected - observed) / standard error, where the standard error comes
+    from the within-cell spatial spread of coherence (std over the cell's pixels).
+    A large z means the corrected coherence drop is large relative to the local
+    variability, i.e. a confident damage call. With dual-pol data the z is
+    computed per channel and averaged. Pixels in a cell are spatially correlated,
+    so this is a relative confidence rather than a strict p-value.
+    """
+    def channel_z(reference, compared, std_ref, n_ref, std_cmp, n_cmp, factor):
+        expected = reference * factor
+        drop = expected - compared
+        variance = (factor ** 2) * std_ref ** 2 / n_ref.clip(lower=1.0) \
+            + std_cmp ** 2 / n_cmp.clip(lower=1.0)
+        standard_error = np.sqrt(variance).replace(0.0, np.nan)
+        return drop / standard_error
+
+    if polarisations:
+        per_pol = []
+        for polarisation in polarisations:
+            per_pol.append(channel_z(
+                grid_gdf[f"coh_E1_{polarisation}"], grid_gdf[f"coh_{epoch}_{polarisation}"],
+                grid_gdf[f"std_E1_{polarisation}"], grid_gdf[f"n_E1_{polarisation}"],
+                grid_gdf[f"std_{epoch}_{polarisation}"], grid_gdf[f"n_{epoch}_{polarisation}"],
+                epoch_retention[polarisation],
+            ))
+        return pd.concat(per_pol, axis=1).mean(axis=1)
+
+    return channel_z(
+        grid_gdf["coh_E1"], grid_gdf[f"coh_{epoch}"],
+        grid_gdf["std_E1"], grid_gdf["n_E1"],
+        grid_gdf[f"std_{epoch}"], grid_gdf[f"n_{epoch}"],
+        epoch_retention,
+    )
+
+
+def add_confidence(
+    grid_gdf: gpd.GeoDataFrame, retention: dict, min_pixels: float
+) -> None:
+    """Add z_<epoch>: per-cell confidence of the drift-corrected damage call."""
+    reference_covered = grid_gdf["n_E1"] >= min_pixels
+    polarisations = _drift_polarisations(grid_gdf)
+    for epoch in config.DAMAGE_EPOCHS:
+        covered = reference_covered & (grid_gdf[f"n_{epoch}"] >= min_pixels)
+        z_score = _confidence_z(grid_gdf, epoch, retention[epoch], polarisations)
+        grid_gdf[f"z_{epoch}"] = z_score.where(covered, other=np.nan)
+
+
 def _share(series, threshold_class: int) -> float:
     """Percentage of classified cells at or above a damage class."""
     classified = series[series >= 0]
@@ -190,6 +239,22 @@ def report(grid_gdf: gpd.GeoDataFrame, retention: dict[str, float],
         print(f"  {epoch:5s} | {raw[0]:5.1f} / {raw[1]:4.1f} | "
               f"{corrected[0]:5.1f} / {corrected[1]:4.1f}")
 
+    if f"z_{config.DAMAGE_EPOCHS[0]}" not in grid_gdf.columns:
+        return
+    print("\n" + "=" * 60)
+    print("Confidence of corrected-affected cells (signal-to-noise z)")
+    print("=" * 60)
+    print("  epoch | affected | confident (z>=1.6) | high (z>=2.3)")
+    for epoch in config.DAMAGE_EPOCHS:
+        affected = built_up[built_up[f"damagec_{epoch}"] >= 1]
+        total = len(affected)
+        if total == 0:
+            continue
+        confident = (affected[f"z_{epoch}"] >= config.Z_CONFIDENT).sum()
+        high = (affected[f"z_{epoch}"] >= config.Z_HIGH_CONFIDENCE).sum()
+        print(f"  {epoch:5s} | {total:8,} | {confident / total * 100:16.0f} % | "
+              f"{high / total * 100:11.0f} %")
+
 
 def main() -> None:
     config.configure_gdal_proj_env()
@@ -208,6 +273,7 @@ def main() -> None:
 
     retention, reference_median = environmental_retention(grid_gdf, min_pixels)
     add_corrected_classes(grid_gdf, retention, min_pixels)
+    add_confidence(grid_gdf, retention, min_pixels)
     report(grid_gdf, retention, reference_median)
 
     built_up = grid_gdf[grid_gdf["building_count"] > 0].copy()

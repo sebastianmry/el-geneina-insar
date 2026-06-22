@@ -313,11 +313,12 @@ def make_figure(grid_gdf: gpd.GeoDataFrame, result: dict) -> None:
     fig, (ax_scatter, ax_hist) = plt.subplots(
         1, 2, figsize=(13, 5.5), facecolor=config.COLOR_BG
     )
-    fig.subplots_adjust(left=0.07, right=0.97, top=0.86, bottom=0.13, wspace=0.22)
-    fig.text(0.5, 0.95,
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.79, bottom=0.13, wspace=0.22)
+    fig.text(0.5, 0.965,
              "Optical cross-validation  -  SAR coherence loss vs Sentinel-2 dNBR",
-             ha="center", color=config.COLOR_FG, fontsize=14, fontweight="bold")
-    fig.text(0.5, 0.905,
+             ha="center", va="center", color=config.COLOR_FG,
+             fontsize=16, fontweight="bold")
+    fig.text(0.5, 0.90,
              f"50 m built-up cells, epoch {epoch}  |  correlation "
              f"{result['correlation']:.2f}  |  mud-brick rubble is spectrally "
              "close to bare soil, so optical cannot confirm the SAR extent",
@@ -327,7 +328,7 @@ def make_figure(grid_gdf: gpd.GeoDataFrame, result: dict) -> None:
         ax.set_facecolor(config.COLOR_BG)
         ax.tick_params(colors=config.COLOR_SUB, labelsize=8)
         for spine in ax.spines.values():
-            spine.set_edgecolor(config.COLOR_LINE)
+            spine.set_visible(False)
 
     ax_scatter.scatter(relative_loss[finite] * 100, dnbr[finite],
                        s=4, alpha=0.25, color="#5a9bd4", edgecolors="none")
