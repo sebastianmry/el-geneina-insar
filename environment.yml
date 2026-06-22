@@ -21,4 +21,8 @@ dependencies:
   - pyproj
   - matplotlib
   - tqdm
+  # Zonal coherence statistics (classify_damage.py, classify_grid.py).
+  - exactextract
+  # CA bundle for streaming Sentinel-2 COGs over HTTPS (validate_optical.py).
+  - certifi
   - pip
