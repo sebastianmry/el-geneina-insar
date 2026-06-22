@@ -57,6 +57,31 @@ def test_relative_loss_column_added():
         assert f"rel_{epoch}" in buildings.columns
 
 
+def _dualpol_buildings():
+    """Two cells with per-polarisation coherence for every epoch.
+
+    Only E2a changes: the second cell loses 0.4 in VV and 0.2 in VH, so the
+    fused relative loss is their mean, 0.3.
+    """
+    enough = config.MIN_BUILDING_PIXELS
+    frame = {f"n_{epoch}": [enough, enough] for epoch in ["E1", *config.DAMAGE_EPOCHS]}
+    for pol in config.COH_POLARISATIONS:
+        for epoch in ["E1", "E2b", "E3"]:
+            frame[f"coh_{epoch}_{pol}"] = [1.0, 1.0]
+    frame["coh_E2a_VV"] = [1.0, 0.6]   # VV loss 0.0, 0.4
+    frame["coh_E2a_VH"] = [1.0, 0.8]   # VH loss 0.0, 0.2
+    return pd.DataFrame(frame)
+
+
+def test_dual_pol_fusion_averages_relative_loss():
+    buildings = _dualpol_buildings()
+    classify_damage.add_damage_classes(buildings)
+    # Fused loss is the mean of the per-channel losses: (0.4 + 0.2) / 2 = 0.3.
+    assert abs(buildings.loc[1, "rel_E2a"] - 0.3) < 1e-6
+    assert buildings.loc[0, "damage_E2a"] == 0
+    assert buildings.loc[1, "damage_E2a"] == 1   # 0.3 crosses the 0.20 light threshold
+
+
 def test_damage_percentages():
     buildings = pd.DataFrame({"damage_E2a": [0, 0, 1, 3]})
     affected_pct, severe_pct = viz_common.damage_percentages(buildings, "E2a")

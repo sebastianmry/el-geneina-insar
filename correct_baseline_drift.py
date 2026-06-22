@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 
 import config
 from classify_damage import add_damage_classes, add_epoch_coherence, load_buildings
@@ -56,31 +57,88 @@ def grid_with_counts(buildings_gdf, cell_size_m: float) -> gpd.GeoDataFrame:
     return grid_gdf.reset_index()
 
 
+def _drift_polarisations(grid_gdf: gpd.GeoDataFrame) -> list[str]:
+    """Polarisations with per-channel coherence columns for every epoch.
+
+    Mirrors classify_damage._fusion_polarisations so the drift correction fuses
+    VV and VH the same way the raw classification does. Returns an empty list
+    when only the bare coh_<epoch> columns exist (single-pol and test frames).
+    """
+    epochs = ["E1", *config.DAMAGE_EPOCHS]
+    available = [
+        pol for pol in config.COH_POLARISATIONS
+        if all(f"coh_{epoch}_{pol}" in grid_gdf.columns for epoch in epochs)
+    ]
+    return available if len(available) > 1 else []
+
+
 def environmental_retention(
     grid_gdf: gpd.GeoDataFrame, min_pixels: float
-) -> tuple[dict[str, float], float]:
-    """Seasonal retention R_env per epoch from stable unbuilt reference cells."""
+):
+    """Seasonal retention R_env per epoch from stable unbuilt reference cells.
+
+    With dual-pol data the retention is estimated per polarisation (VH and VV
+    decorrelate seasonally to a different degree), so the returned value is a
+    nested dict {epoch: {pol: R_env}}. Without per-polarisation columns it falls
+    back to a flat {epoch: R_env} on the bare coherence. The reported reference
+    median is always the primary (VV) channel for display.
+    """
     unbuilt = grid_gdf[grid_gdf["building_count"] == 0]
     reference_valid = unbuilt["n_E1"] >= min_pixels
     reference_median = float(np.nanmedian(unbuilt.loc[reference_valid, "coh_E1"]))
+    polarisations = _drift_polarisations(grid_gdf)
 
-    retention: dict[str, float] = {}
-    for epoch in config.DAMAGE_EPOCHS:
-        valid = unbuilt[f"n_{epoch}"] >= min_pixels
-        epoch_median = float(np.nanmedian(unbuilt.loc[valid, f"coh_{epoch}"]))
-        retention[epoch] = epoch_median / reference_median
+    if not polarisations:
+        retention: dict[str, float] = {}
+        for epoch in config.DAMAGE_EPOCHS:
+            valid = unbuilt[f"n_{epoch}"] >= min_pixels
+            epoch_median = float(np.nanmedian(unbuilt.loc[valid, f"coh_{epoch}"]))
+            retention[epoch] = epoch_median / reference_median
+        return retention, reference_median
+
+    retention = {epoch: {} for epoch in config.DAMAGE_EPOCHS}
+    for polarisation in polarisations:
+        ref_median = float(
+            np.nanmedian(unbuilt.loc[reference_valid, f"coh_E1_{polarisation}"])
+        )
+        for epoch in config.DAMAGE_EPOCHS:
+            valid = unbuilt[f"n_{epoch}"] >= min_pixels
+            epoch_median = float(
+                np.nanmedian(unbuilt.loc[valid, f"coh_{epoch}_{polarisation}"])
+            )
+            retention[epoch][polarisation] = epoch_median / ref_median
     return retention, reference_median
 
 
+def _corrected_loss(grid_gdf: gpd.GeoDataFrame, epoch: str, epoch_retention):
+    """Drift-corrected relative loss for an epoch.
+
+    The expected coherence under seasonal drift alone is coh_E1 * R_env, and the
+    corrected loss is the drop beyond that. With dual-pol data (epoch_retention a
+    {pol: R_env} dict) it is computed per polarisation, each against its own
+    channel baseline and retention, then averaged, matching the raw dual-pol
+    fusion. A scalar retention uses the bare coherence (single-pol / tests).
+    """
+    if isinstance(epoch_retention, dict):
+        per_pol_losses = []
+        for polarisation, retention_value in epoch_retention.items():
+            expected = grid_gdf[f"coh_E1_{polarisation}"] * retention_value
+            compared = grid_gdf[f"coh_{epoch}_{polarisation}"]
+            per_pol_losses.append((expected - compared) / (expected + 1e-6))
+        return pd.concat(per_pol_losses, axis=1).mean(axis=1)
+
+    expected = grid_gdf["coh_E1"] * epoch_retention
+    return (expected - grid_gdf[f"coh_{epoch}"]) / (expected + 1e-6)
+
+
 def add_corrected_classes(
-    grid_gdf: gpd.GeoDataFrame, retention: dict[str, float], min_pixels: float
+    grid_gdf: gpd.GeoDataFrame, retention: dict, min_pixels: float
 ) -> None:
     """Add relc_<epoch> and damagec_<epoch> from the drift-corrected loss."""
     reference_covered = grid_gdf["n_E1"] >= min_pixels
     for epoch in config.DAMAGE_EPOCHS:
         covered = reference_covered & (grid_gdf[f"n_{epoch}"] >= min_pixels)
-        expected = grid_gdf["coh_E1"] * retention[epoch]
-        relative_loss = (expected - grid_gdf[f"coh_{epoch}"]) / (expected + 1e-6)
+        relative_loss = _corrected_loss(grid_gdf, epoch, retention[epoch])
         relative_loss = relative_loss.where(covered, other=np.nan)
         grid_gdf[f"relc_{epoch}"] = relative_loss
 
@@ -107,10 +165,18 @@ def report(grid_gdf: gpd.GeoDataFrame, retention: dict[str, float],
     print("\n" + "=" * 60)
     print("Rainy-season environmental retention (unbuilt reference cells)")
     print("=" * 60)
-    print(f"  E1 unbuilt median coherence: {reference_median:.3f}")
+    print(f"  E1 unbuilt median coherence (primary channel): {reference_median:.3f}")
     for epoch in config.DAMAGE_EPOCHS:
-        print(f"  R_env({epoch}): {retention[epoch]:.3f}  "
-              f"(seasonal loss {(1 - retention[epoch]) * 100:.0f}%)")
+        epoch_retention = retention[epoch]
+        if isinstance(epoch_retention, dict):
+            parts = "  ".join(
+                f"{pol} {value:.3f} (loss {(1 - value) * 100:.0f}%)"
+                for pol, value in epoch_retention.items()
+            )
+            print(f"  R_env({epoch}): {parts}")
+        else:
+            print(f"  R_env({epoch}): {epoch_retention:.3f}  "
+                  f"(seasonal loss {(1 - epoch_retention) * 100:.0f}%)")
 
     print("\n" + "=" * 60)
     print("Affected / severe of built-up cells: raw vs drift-corrected")

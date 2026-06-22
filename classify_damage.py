@@ -25,6 +25,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio
 from exactextract import exact_extract
 
@@ -89,32 +90,46 @@ def load_buildings() -> gpd.GeoDataFrame:
 
 
 def add_epoch_coherence(features_gdf: gpd.GeoDataFrame) -> None:
-    """Add coh_<epoch>, n_<epoch> and std_<epoch> columns via zonal statistics.
+    """Add per-epoch coherence columns via zonal statistics, per polarisation.
 
-    Works on any polygon layer (building footprints or grid cells). For epochs
-    with several coherence pairs the per-pair means are averaged; the valid-pixel
-    count is taken as the minimum across pairs (the conservative coverage), and
-    the spread is averaged.
+    Works on any polygon layer (building footprints or grid cells). For each
+    polarisation in config.COH_POLARISATIONS it writes coh_<epoch>_<pol>,
+    n_<epoch>_<pol> and std_<epoch>_<pol>; for epochs with several coherence
+    pairs the per-pair means are averaged, the valid-pixel count is the minimum
+    across pairs (the conservative coverage) and the spread is averaged.
+
+    The primary channel (the first polarisation, VV) is also mirrored to the
+    bare coh_<epoch>, n_<epoch> and std_<epoch> columns, so the visualization and
+    the legacy single-pol code path keep working unchanged. The dual-pol fusion
+    itself happens in add_damage_classes (mean of the per-polarisation relative
+    loss), which reads the per-polarisation columns when they are present.
     """
     print("Aggregating coherence over footprints...")
-    for epoch, tif_names in config.EPOCH_COH_TIFS.items():
+    primary = config.COH_POLARISATIONS[0]
+    for epoch in config.EPOCH_COH_TIFS:
         print(f"  {epoch}...")
-        pair_means, pair_counts, pair_stds = [], [], []
-        for tif_name in tif_names:
-            start = time.time()
-            mean, count, std = zonal_coherence(
-                features_gdf, config.COH_DIR / tif_name
-            )
-            print(f"    {tif_name}: {time.time() - start:.0f}s")
-            pair_means.append(mean)
-            pair_counts.append(count)
-            pair_stds.append(std)
+        for polarisation in config.COH_POLARISATIONS:
+            pair_means, pair_counts, pair_stds = [], [], []
+            for tif_name in config.epoch_coh_tif_names(epoch, polarisation):
+                start = time.time()
+                mean, count, std = zonal_coherence(
+                    features_gdf, config.COH_DIR / tif_name
+                )
+                print(f"    {tif_name}: {time.time() - start:.0f}s")
+                pair_means.append(mean)
+                pair_counts.append(count)
+                pair_stds.append(std)
 
-        features_gdf[f"coh_{epoch}"] = np.nanmean(pair_means, axis=0)
-        features_gdf[f"n_{epoch}"] = np.min(pair_counts, axis=0)
-        features_gdf[f"std_{epoch}"] = np.nanmean(pair_stds, axis=0)
+            features_gdf[f"coh_{epoch}_{polarisation}"] = np.nanmean(pair_means, axis=0)
+            features_gdf[f"n_{epoch}_{polarisation}"] = np.min(pair_counts, axis=0)
+            features_gdf[f"std_{epoch}_{polarisation}"] = np.nanmean(pair_stds, axis=0)
+            print(f"    {polarisation} mean coherence: "
+                  f"{np.nanmean(features_gdf[f'coh_{epoch}_{polarisation}']):.3f}")
 
-        print(f"    mean coherence: {np.nanmean(features_gdf[f'coh_{epoch}']):.3f}")
+        # Mirror the primary channel to the bare columns (viz + legacy path).
+        features_gdf[f"coh_{epoch}"] = features_gdf[f"coh_{epoch}_{primary}"]
+        features_gdf[f"n_{epoch}"] = features_gdf[f"n_{epoch}_{primary}"]
+        features_gdf[f"std_{epoch}"] = features_gdf[f"std_{epoch}_{primary}"]
 
 
 def add_damage_classes(
@@ -131,13 +146,14 @@ def add_damage_classes(
     print("\nComputing damage classes...")
     has_coverage = _coverage_columns(features_gdf, min_pixels)
     reference_covered = has_coverage("E1")
+    polarisations = _fusion_polarisations(features_gdf)
+    if polarisations:
+        print(f"  dual-pol fusion: mean relative loss over {polarisations}")
 
     for epoch in config.DAMAGE_EPOCHS:
         covered = reference_covered & has_coverage(epoch)
 
-        relative_loss = (features_gdf["coh_E1"] - features_gdf[f"coh_{epoch}"]) / (
-            features_gdf["coh_E1"] + 1e-6
-        )
+        relative_loss = _relative_loss(features_gdf, epoch, polarisations)
         relative_loss = relative_loss.where(covered, other=np.nan)
         features_gdf[f"rel_{epoch}"] = relative_loss
 
@@ -155,6 +171,45 @@ def _coverage_columns(features_gdf: gpd.GeoDataFrame, min_pixels: float):
     def has_coverage(epoch: str):
         return features_gdf[f"n_{epoch}"] >= min_pixels
     return has_coverage
+
+
+def _fusion_polarisations(features_gdf: gpd.GeoDataFrame) -> list[str]:
+    """Polarisations that have per-channel coherence columns for every epoch.
+
+    Returns the list (e.g. ["VV", "VH"]) when add_epoch_coherence wrote
+    per-polarisation columns, enabling the dual-pol fusion. Returns an empty
+    list when only the bare coh_<epoch> columns exist, so the single-pol path
+    (and the synthetic-frame tests) keep working.
+    """
+    epochs = ["E1", *config.DAMAGE_EPOCHS]
+    available = [
+        pol for pol in config.COH_POLARISATIONS
+        if all(f"coh_{epoch}_{pol}" in features_gdf.columns for epoch in epochs)
+    ]
+    # A single available channel adds nothing over the bare columns.
+    return available if len(available) > 1 else []
+
+
+def _relative_loss(features_gdf: gpd.GeoDataFrame, epoch: str, polarisations: list[str]):
+    """Relative coherence loss against E1 for an epoch.
+
+    With dual-pol fusion the loss is computed per polarisation and averaged
+    (mean of the per-channel relative loss). Per-channel normalisation against
+    each channel's own E1 baseline is deliberate: VH coherence sits systematically
+    below VV, so averaging the raw coherence would bias the loss. Without
+    per-polarisation columns it falls back to the single bare coherence column.
+    """
+    if not polarisations:
+        return (features_gdf["coh_E1"] - features_gdf[f"coh_{epoch}"]) / (
+            features_gdf["coh_E1"] + 1e-6
+        )
+
+    per_pol_losses = []
+    for polarisation in polarisations:
+        reference = features_gdf[f"coh_E1_{polarisation}"]
+        compared = features_gdf[f"coh_{epoch}_{polarisation}"]
+        per_pol_losses.append((reference - compared) / (reference + 1e-6))
+    return pd.concat(per_pol_losses, axis=1).mean(axis=1)
 
 
 def print_damage_summary(buildings_gdf: gpd.GeoDataFrame, epoch: str) -> None:

@@ -162,6 +162,37 @@ REFERENCE_COH_TIF = COH_DIR / "E1_coh_0319_0331.tif"
 # -----------------------------------------------------------------------------
 SUBSWATH = "IW1"          # El Geneina lies in IW1 (confirmed by find_subswath)
 POLARISATIONS = "VV,VH"
+
+# Polarisations carried through to the coherence estimate. VV is the primary
+# co-pol channel; VH (cross-pol) is processed as a second channel for dual-pol
+# fusion in the damage classification (mean of the per-polarisation relative
+# coherence loss). The list is parsed from POLARISATIONS so the split and the
+# coherence stages stay consistent, and the first entry is the primary channel.
+COH_POLARISATIONS = [pol.strip() for pol in POLARISATIONS.split(",")]
+
+
+def coh_tif_name(label: str, polarisation: str) -> str:
+    """GeoTIFF name for a coherence pair in a given polarisation.
+
+    The primary channel (VV) keeps the bare label for backward compatibility
+    with the original VV-only products, so those rasters are not reprocessed.
+    The cross-pol channel carries a polarisation suffix.
+    """
+    if polarisation == COH_POLARISATIONS[0]:
+        return f"{label}.tif"
+    return f"{label}_{polarisation}.tif"
+
+
+def epoch_coh_tif_names(epoch: str, polarisation: str) -> list[str]:
+    """Coherence GeoTIFF names for an epoch in a given polarisation.
+
+    EPOCH_COH_TIFS holds the primary-channel (VV) names; this maps them to the
+    requested polarisation via coh_tif_name so the damage classification can read
+    each polarisation separately for the dual-pol fusion.
+    """
+    return [coh_tif_name(name[:-4], polarisation) for name in EPOCH_COH_TIFS[epoch]]
+
+
 ORBIT_DIRECTION = "DESCENDING"
 NUM_BURSTS = 9            # IW always has 9 bursts per subswath
 COH_WIN_RANGE = 10        # coherence window, range (pixels)
@@ -313,6 +344,15 @@ OPTICAL_VALIDATION_REPORT = REPO_DIR / "docs" / "OPTICAL_VALIDATION.md"
 OPTICAL_VALIDATION_FIGURE = ASSETS_DIR / "optical_validation.png"
 
 # -----------------------------------------------------------------------------
+# Dual-polarisation (VV/VH) diagnostic
+# -----------------------------------------------------------------------------
+# compare_polarisations.py characterises the cross-pol channel against the
+# co-pol channel: how correlated VV and VH coherence are (whether VH adds
+# independent information) and how differently each decorrelates in the rainy
+# season (the per-polarisation environmental retention R_env).
+POLARISATION_DIAGNOSTIC_FIGURE = ASSETS_DIR / "polarisation_diagnostic.png"
+
+# -----------------------------------------------------------------------------
 # Area of interest
 # -----------------------------------------------------------------------------
 @lru_cache(maxsize=1)
@@ -364,6 +404,11 @@ COLOR_FG = "#e8e8f0"       # primary text and map furniture
 COLOR_SUB = "#b0b0cc"      # subtitles, captions, metadata
 COLOR_PANEL = "#1a1a30"    # legend and inset box fill
 COLOR_LINE = "#3a3a5c"     # axes spines and dividers
+
+# Polarisation channels in the dual-pol diagnostic figure. Teal and lavender
+# both read on the dark backdrop and stay clear of the warm damage ramp.
+COLOR_VV = "#4ecdc4"       # primary co-pol channel (teal)
+COLOR_VH = "#b388eb"       # cross-pol channel (lavender)
 
 # Damage class styling: 0 = none, 1 = light, 2 = moderate, 3 = severe.
 # The no-damage class is a muted grey so it recedes on the dark backdrop, while
