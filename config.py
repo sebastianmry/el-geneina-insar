@@ -353,6 +353,20 @@ OPTICAL_VALIDATION_FIGURE = ASSETS_DIR / "optical_validation.png"
 POLARISATION_DIAGNOSTIC_FIGURE = ASSETS_DIR / "polarisation_diagnostic.png"
 
 # -----------------------------------------------------------------------------
+# Damage confidence / uncertainty layer (uncertainty.py)
+# -----------------------------------------------------------------------------
+# Each cell's drift-corrected coherence drop is divided by its standard error,
+# estimated from the within-cell spatial spread of coherence, to give a per-cell
+# signal-to-noise z-score: how strong the damage signal is relative to the local
+# coherence variability. Pixels within a cell are spatially correlated, so this
+# reads as a relative confidence, not a strict p-value. The fixed-threshold
+# classification is unchanged; this layer flags how trustworthy each call is.
+Z_CONFIDENT = 1.645        # one-sided ~p < 0.05, "confident"
+Z_HIGH_CONFIDENCE = 2.33   # one-sided ~p < 0.01, "high confidence"
+COLORMAP_CONFIDENCE = "viridis"
+UNCERTAINTY_FIGURE = ASSETS_DIR / "damage_confidence.png"
+
+# -----------------------------------------------------------------------------
 # Area of interest
 # -----------------------------------------------------------------------------
 @lru_cache(maxsize=1)
@@ -407,8 +421,8 @@ COLOR_LINE = "#3a3a5c"     # axes spines and dividers
 
 # Polarisation channels in the dual-pol diagnostic figure. Teal and lavender
 # both read on the dark backdrop and stay clear of the warm damage ramp.
-COLOR_VV = "#4ecdc4"       # primary co-pol channel (teal)
-COLOR_VH = "#b388eb"       # cross-pol channel (lavender)
+COLOR_VV = "#2d4ea8"       # primary co-pol channel (dark blue, matched to magenta)
+COLOR_VH = "#b04a9e"       # cross-pol channel (magenta-violet)
 
 # Damage class styling: 0 = none, 1 = light, 2 = moderate, 3 = severe.
 # The no-damage class is a muted grey so it recedes on the dark backdrop, while

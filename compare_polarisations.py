@@ -100,7 +100,7 @@ def style_axes(ax) -> None:
     ax.set_facecolor(config.COLOR_BG)
     ax.tick_params(colors=config.COLOR_FG)
     for spine in ax.spines.values():
-        spine.set_color(config.COLOR_LINE)
+        spine.set_visible(False)
 
 
 def print_summary(built_up_gdf, retention: dict) -> None:
@@ -135,13 +135,14 @@ def main() -> None:
     print_summary(built_up_gdf, retention)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6), facecolor=config.COLOR_BG)
-    fig.subplots_adjust(left=0.07, right=0.97, top=0.90, bottom=0.12, wspace=0.22)
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.84, bottom=0.12, wspace=0.22)
     for ax in axes:
         style_axes(ax)
     plot_scatter(axes[0], built_up_gdf)
     plot_retention(axes[1], retention)
-    fig.suptitle("Dual-polarisation diagnostic  -  El Geneina 2023",
-                 color=config.COLOR_FG, fontsize=15, fontweight="bold")
+    fig.text(0.5, 0.965, "Dual-polarisation diagnostic  -  El Geneina 2023",
+             ha="center", va="center", color=config.COLOR_FG,
+             fontsize=16, fontweight="bold")
 
     output_path = config.POLARISATION_DIAGNOSTIC_FIGURE
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=config.COLOR_BG)
