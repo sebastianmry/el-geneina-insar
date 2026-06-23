@@ -229,8 +229,6 @@ relative loss, and the two relative losses are then averaged (mean fusion). This
 runs through both the raw classification and the drift correction, so every
 reported figure is the fused VV+VH result.
 
-![Dual-polarisation diagnostic](assets/polarisation_diagnostic.png)
-
 ---
 
 ## Baseline robustness
@@ -299,7 +297,7 @@ Two things follow. First, the fixed thresholds are not arbitrary: the cells the
 (z >= 1.6 for 100 %, z >= 2.3 for 97 to 99 %), while non-affected cells sit at
 z near 0. The threshold extent and the significant extent coincide. Second, there
 is a confidence gradient within the affected area (median z about 4.3, rising past
-15 in the core), so the map distinguishes a high-confidence damage core from
+15 in the core), so the z-score separates a high-confidence damage core from
 marginal edges. Pixels in a cell are spatially correlated, so z reads as a
 relative confidence rather than a strict p-value; the dominant uncertainties
 remain the seasonal bracket above and the baseline floor.
@@ -317,8 +315,6 @@ averaged onto the same 50 m grid.
 The optical map does not reproduce the SAR damage pattern: the correlation
 between coherence loss and dNBR is 0.03, and only about 3 % of built-up cells
 cross the dNBR threshold, within the noise of the index.
-
-![Optical cross-validation](assets/optical_validation.png)
 
 This is a property of the fabric, not a refutation of the SAR. El Geneina is
 built from mud brick, so a destroyed building collapses into rubble that is
@@ -348,8 +344,6 @@ The intensity does not reproduce the coherence damage pattern: the correlation
 between coherence loss and the intensity log-ratio is -0.11, the two channels are
 nearly independent, and only a small fraction of coherence-affected cells show a
 matching backscatter change.
-
-![Intensity cross-check](assets/intensity_filter.png)
 
 The motivation was to filter out rainy-season false positives by keeping only
 coherence calls that the rain-robust intensity confirms. The filter is
