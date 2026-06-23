@@ -24,6 +24,12 @@ PERIOD_LABELS = {
     "E3": "Jul 2023",
 }
 
+# Stat-bar styling. The gauge fill picks up the light-class gold, the colour that
+# carries the whole figure, so the bar echoes the dominant damage signal. A faint
+# dark track shows the 100 % reference.
+BAR_TRACK = config.COLOR_PANEL
+BAR_AFFECTED = config.DAMAGE_FILL[1]
+
 
 def main() -> None:
     config.ASSETS_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,12 +51,15 @@ def main() -> None:
              ha="center", va="center", color=config.COLOR_FG,
              fontsize=16, fontweight="bold")
 
-    for ax, epoch in zip(axes, config.DAMAGE_EPOCHS):
+    n_panels = len(config.DAMAGE_EPOCHS)
+    for idx, (ax, epoch) in enumerate(zip(axes, config.DAMAGE_EPOCHS)):
         affected_pct, _ = viz_common.damage_percentages(
             grid_gdf, epoch, column_prefix="damagec")
-        _draw_panel(fig, ax, plot_gdf, reference, epoch, affected_pct)
+        _draw_panel(fig, ax, plot_gdf, reference, epoch, affected_pct,
+                    is_first=idx == 0, is_last=idx == n_panels - 1)
 
     _add_legend(fig)
+    viz_common.add_attribution(fig, "© OpenStreetMap contributors")
 
     output_path = config.ASSETS_DIR / "damage_overview.png"
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=config.COLOR_BG)
@@ -58,13 +67,17 @@ def main() -> None:
     print(f"Saved: {output_path}")
 
 
-def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct):
+def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct,
+                is_first, is_last):
     """Render a single epoch panel with its damage classes and the affected bar.
 
-    The percentage is the drift-corrected affected share.
+    The percentage is the drift-corrected affected share. Map furniture is shown
+    once across the row (scale bar on the first panel, north arrow on the last)
+    since all panels share one extent.
     """
     ax.set_facecolor(config.COLOR_BG)
-    viz_common.draw_coherence_backdrop(ax, reference, alpha=0.30)
+    # Quieter backdrop so the damage classes carry the figure, not the speckle.
+    viz_common.draw_coherence_backdrop(ax, reference, alpha=0.20)
 
     damage_column = f"damagec_{epoch}"
     for damage_class in (0, 1, 2, 3):
@@ -85,8 +98,10 @@ def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct):
         spine.set_edgecolor(config.COLOR_LINE)
         spine.set_linewidth(0.8)
 
-    viz_common.add_scale_bar(ax)
-    viz_common.add_north_arrow(ax)
+    if is_first:
+        viz_common.add_scale_bar(ax)
+    if is_last:
+        viz_common.add_north_arrow(ax)
 
     ax.set_title(f"{epoch}  {PERIOD_LABELS[epoch]}", color=config.COLOR_FG,
                  fontsize=11, fontweight="bold", pad=8)
@@ -95,17 +110,22 @@ def _draw_panel(fig, ax, buildings_gdf, reference, epoch, affected_pct):
 
 
 def _add_stat_bar(fig, ax, affected_pct):
-    """Draw the drift-corrected affected percentage bar beneath a panel."""
+    """Draw the drift-corrected affected gauge beneath a panel.
+
+    A faint full-width track carries the affected fill in the light-class gold,
+    the dominant colour of the figure.
+    """
     position = ax.get_position()
     bar_height = 0.013
     y = position.y0 - 0.005 - bar_height
 
     fig.add_artist(plt.Rectangle((position.x0, y), position.width, bar_height,
-                                 transform=fig.transFigure, facecolor=config.COLOR_BG,
+                                 transform=fig.transFigure, facecolor=BAR_TRACK,
                                  clip_on=False, zorder=5))
     fig.add_artist(plt.Rectangle((position.x0, y), position.width * affected_pct / 100,
                                  bar_height, transform=fig.transFigure,
-                                 facecolor="#e07b39", clip_on=False, zorder=6))
+                                 facecolor=BAR_AFFECTED, clip_on=False, zorder=6))
+
     label = f"Affected  {affected_pct:.0f}%"
     fig.text(position.x0 + 0.005, y + bar_height + 0.002, label,
              transform=fig.transFigure, color=config.COLOR_FG, fontsize=7.5,

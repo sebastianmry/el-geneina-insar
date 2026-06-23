@@ -28,7 +28,6 @@ cloud-optimised GeoTIFFs; nothing is stored permanently.
 Outputs:
   config.OPTICAL_DNBR_FILE            grid cells with dNBR and the SAR classes
   config.OPTICAL_VALIDATION_REPORT    agreement + correlation report
-  config.OPTICAL_VALIDATION_FIGURE    confusion matrix and scatter figure
 """
 
 from __future__ import annotations
@@ -122,13 +121,13 @@ def _read_window(href: str, bounds_utm, out_shape=None, transform_ref=None):
     with rasterio.open(href) as src:
         window = from_bounds(*bounds_utm, transform=src.transform)
         if out_shape is None:
-            data = src.read(1, window=window).astype("float32")
+            band_array = src.read(1, window=window).astype("float32")
             transform = src.window_transform(window)
-            return data, transform
-        data = src.read(
+            return band_array, transform
+        band_array = src.read(
             1, window=window, out_shape=out_shape, resampling=Resampling.bilinear
         ).astype("float32")
-        return data, transform_ref
+        return band_array, transform_ref
 
 
 def nbr_for_scene(scene: dict, bounds_utm) -> tuple[np.ndarray, object]:
@@ -301,64 +300,6 @@ def write_report(result: dict, pre_scene: dict, post_scene: dict) -> None:
     config.OPTICAL_VALIDATION_REPORT.write_text("\n".join(lines), encoding="utf-8")
 
 
-def make_figure(grid_gdf: gpd.GeoDataFrame, result: dict) -> None:
-    """Two-panel figure: the missing loss-dNBR relation and the dNBR spread."""
-    import matplotlib.pyplot as plt
-
-    epoch = result["epoch"]
-    relative_loss = grid_gdf[f"rel_{epoch}"].to_numpy(dtype=float)
-    dnbr = grid_gdf["dnbr"].to_numpy(dtype=float)
-    finite = np.isfinite(relative_loss) & np.isfinite(dnbr)
-
-    fig, (ax_scatter, ax_hist) = plt.subplots(
-        1, 2, figsize=(13, 5.5), facecolor=config.COLOR_BG
-    )
-    fig.subplots_adjust(left=0.07, right=0.97, top=0.79, bottom=0.13, wspace=0.22)
-    fig.text(0.5, 0.965,
-             "Optical cross-validation  -  SAR coherence loss vs Sentinel-2 dNBR",
-             ha="center", va="center", color=config.COLOR_FG,
-             fontsize=16, fontweight="bold")
-    fig.text(0.5, 0.90,
-             f"50 m built-up cells, epoch {epoch}  |  correlation "
-             f"{result['correlation']:.2f}  |  mud-brick rubble is spectrally "
-             "close to bare soil, so optical cannot confirm the SAR extent",
-             ha="center", color=config.COLOR_SUB, fontsize=9)
-
-    for ax in (ax_scatter, ax_hist):
-        ax.set_facecolor(config.COLOR_BG)
-        ax.tick_params(colors=config.COLOR_SUB, labelsize=8)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-    ax_scatter.scatter(relative_loss[finite] * 100, dnbr[finite],
-                       s=4, alpha=0.25, color="#5a9bd4", edgecolors="none")
-    ax_scatter.axhline(config.DNBR_DESTRUCTION_THRESHOLD, color="#d62728",
-                       linewidth=1.0, linestyle="--", alpha=0.8)
-    ax_scatter.set_xlabel("SAR relative coherence loss (%)",
-                          color=config.COLOR_FG, fontsize=9)
-    ax_scatter.set_ylabel("Optical dNBR (pre - post)",
-                          color=config.COLOR_FG, fontsize=9)
-    ax_scatter.set_title("No relationship between the two signals",
-                         color=config.COLOR_FG, fontsize=10)
-
-    ax_hist.hist(dnbr[finite], bins=60, color="#5a9bd4", alpha=0.85)
-    ax_hist.axvline(config.DNBR_DESTRUCTION_THRESHOLD, color="#d62728",
-                    linewidth=1.0, linestyle="--", alpha=0.8,
-                    label=f"destruction threshold {config.DNBR_DESTRUCTION_THRESHOLD:g}")
-    ax_hist.set_xlabel("Optical dNBR", color=config.COLOR_FG, fontsize=9)
-    ax_hist.set_ylabel("Grid cells", color=config.COLOR_FG, fontsize=9)
-    ax_hist.set_title("dNBR centred near zero (no burn signal)",
-                      color=config.COLOR_FG, fontsize=10)
-    legend = ax_hist.legend(fontsize=8, frameon=True, facecolor=config.COLOR_PANEL,
-                            edgecolor=config.COLOR_LINE, labelcolor=config.COLOR_FG)
-
-    config.ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(config.OPTICAL_VALIDATION_FIGURE, dpi=200,
-                facecolor=config.COLOR_BG, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Figure: {config.OPTICAL_VALIDATION_FIGURE}")
-
-
 def main() -> None:
     config.configure_gdal_proj_env()
     config.ensure_processing_dirs()
@@ -391,7 +332,6 @@ def main() -> None:
     print(f"\nSaved: {config.OPTICAL_DNBR_FILE}")
     write_report(result, pre_scene, post_scene)
     print(f"Report: {config.OPTICAL_VALIDATION_REPORT}")
-    make_figure(grid_gdf, result)
 
 
 def _print_summary(result: dict) -> None:

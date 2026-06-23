@@ -90,6 +90,10 @@ natural decorrelation.
   pre-conflict reference itself is checked for stability in `check_baseline.py`.
 - The 12-day revisit means sub-epoch timing of individual events cannot be
   resolved.
+- A single descending track has no ascending counterpart, so layover and
+  shadow in El Geneina's dense, low-rise fabric are not averaged out. Affected
+  buildings on the sensor-facing or far side of a block can be over- or
+  under-represented in the coherence signal independently of actual damage.
 - Optical validation has a ceiling here (`validate_optical.py`). A Sentinel-2
   dNBR check on phenology-matched dry-season scenes does not reproduce the SAR
   pattern (correlation 0.03): mud-brick rubble is spectrally close to bare soil,

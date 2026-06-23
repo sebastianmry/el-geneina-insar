@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import geopandas as gpd
 import matplotlib.patheffects as pe
 import numpy as np
+from matplotlib.patches import Polygon
 import rasterio
 from rasterio import features as rio_features
 from shapely.geometry import box, shape
@@ -66,18 +67,45 @@ def draw_coherence_backdrop(ax, reference, alpha: float = 0.30) -> None:
               interpolation="bilinear", alpha=alpha, zorder=0)
 
 
-def add_north_arrow(ax, location=(0.955, 0.92)) -> None:
-    """Draw a clean north arrow: an upward triangle with an N above it.
+def add_attribution(fig, text: str, location=(0.99, 0.015)) -> None:
+    """Print a small data-attribution credit in the figure's bottom-right corner.
 
-    The map is projected with north up (config.OUTPUT_CRS), so the arrow is a
-    fixed marker rather than a computed bearing.
+    The OpenStreetMap footprints are ODbL, which requires the credit to travel
+    with the produced map itself, not only the README. Kept as a single muted
+    line so it satisfies the licence without cluttering the dark cartography.
+    """
+    fig.text(location[0], location[1], text, ha="right", va="bottom",
+             color=config.COLOR_SUB, fontsize=6.5,
+             path_effects=[pe.withStroke(linewidth=1.5, foreground=config.COLOR_BG)],
+             zorder=10)
+
+
+def add_north_arrow(ax, location=(0.955, 0.90)) -> None:
+    """Draw a cartographic compass needle: a split diamond with an N above it.
+
+    The north half is filled and the south half is left as an outline, the
+    classic two-tone needle. The map is projected with north up
+    (config.OUTPUT_CRS), so the needle is a fixed marker, not a computed bearing.
     """
     x, y = location
+    top, bottom, waist, half_width = y + 0.050, y - 0.030, y + 0.004, 0.013
+    apex, tail = (x, top), (x, bottom)
+
+    north_half = Polygon(
+        [apex, (x - half_width, waist), tail], closed=True,
+        facecolor=config.COLOR_FG, edgecolor=config.COLOR_BG, linewidth=0.8,
+        transform=ax.transAxes, clip_on=False, zorder=10, joinstyle="miter",
+    )
+    south_half = Polygon(
+        [apex, (x + half_width, waist), tail], closed=True,
+        facecolor="none", edgecolor=config.COLOR_FG, linewidth=1.0,
+        transform=ax.transAxes, clip_on=False, zorder=10, joinstyle="miter",
+    )
+    ax.add_patch(north_half)
+    ax.add_patch(south_half)
+
     stroke = [pe.withStroke(linewidth=2.0, foreground=config.COLOR_BG)]
-    ax.plot(x, y, marker="^", markersize=12, color=config.COLOR_FG,
-            markeredgecolor=config.COLOR_BG, markeredgewidth=0.8,
-            transform=ax.transAxes, clip_on=False, zorder=10)
-    ax.text(x, y + 0.032, "N", transform=ax.transAxes, ha="center", va="center",
+    ax.text(x, top + 0.028, "N", transform=ax.transAxes, ha="center", va="center",
             color=config.COLOR_FG, fontsize=11, fontweight="bold",
             path_effects=stroke, zorder=10)
 

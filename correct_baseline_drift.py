@@ -38,6 +38,7 @@ import pandas as pd
 import config
 from classify_damage import add_damage_classes, add_epoch_coherence, load_buildings
 from classify_grid import reference_grid
+from uncertainty import print_confidence
 
 
 def grid_with_counts(buildings_gdf, cell_size_m: float) -> gpd.GeoDataFrame:
@@ -241,19 +242,7 @@ def report(grid_gdf: gpd.GeoDataFrame, retention: dict[str, float],
 
     if f"z_{config.DAMAGE_EPOCHS[0]}" not in grid_gdf.columns:
         return
-    print("\n" + "=" * 60)
-    print("Confidence of corrected-affected cells (signal-to-noise z)")
-    print("=" * 60)
-    print("  epoch | affected | confident (z>=1.6) | high (z>=2.3)")
-    for epoch in config.DAMAGE_EPOCHS:
-        affected = built_up[built_up[f"damagec_{epoch}"] >= 1]
-        total = len(affected)
-        if total == 0:
-            continue
-        confident = (affected[f"z_{epoch}"] >= config.Z_CONFIDENT).sum()
-        high = (affected[f"z_{epoch}"] >= config.Z_HIGH_CONFIDENCE).sum()
-        print(f"  {epoch:5s} | {total:8,} | {confident / total * 100:16.0f} % | "
-              f"{high / total * 100:11.0f} %")
+    print_confidence(built_up)
 
 
 def main() -> None:

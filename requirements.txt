@@ -1,12 +1,16 @@
 # Analysis and visualization dependencies (post-processing of GeoTIFF outputs).
 # For the SNAP-based InSAR pipeline itself, see requirements-pipeline.txt.
 numpy
+pandas
 geopandas
 rasterio
 exactextract
 shapely
 pyproj
 matplotlib
+# Light-theme diagnostic plots (plot_*.py): Altair charts plus a KDE.
+altair
+scipy
 tqdm
 # certifi supplies the CA bundle for streaming Sentinel-2 COGs over HTTPS
 # (validate_optical.py); the Windows certificate store can break Python's

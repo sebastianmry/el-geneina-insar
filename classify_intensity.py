@@ -32,17 +32,14 @@ to the surrounding bare soil, so some genuine collapses produce only a weak
 backscatter change and are filtered out. The intensity-filtered extent is thus a
 strict lower bound, complementing the drift-corrected lower bound.
 
-    python classify_intensity.py           full run (zonal extraction + figure)
-    python classify_intensity.py figure    re-render the figure from the cache only
+    python classify_intensity.py
 
 Outputs:
   config.INTENSITY_FILTERED_FILE   built-up cells with intensity + filtered classes
-  config.INTENSITY_GRID_CACHE      full grid cache for fast figure re-renders
 """
 
 from __future__ import annotations
 
-import sys
 import time
 from pathlib import Path
 
@@ -53,7 +50,6 @@ import rasterio
 from exactextract import exact_extract
 
 import config
-from check_baseline import pearson_correlation
 from classify_damage import load_buildings
 from correct_baseline_drift import grid_with_counts
 
@@ -193,104 +189,6 @@ def report(grid_gdf: gpd.GeoDataFrame, thresholds: dict[str, float]) -> None:
               f"{corrected - filtered:6.1f} pp")
 
 
-def make_figure(grid_gdf: gpd.GeoDataFrame, thresholds: dict[str, float]) -> None:
-    """Diagnostic figure: the intensity channel does not corroborate coherence.
-
-    Three panels for the peak epoch E2b: (1) corrected coherence loss vs the
-    absolute intensity log-ratio (a flat blob = no relation), (2) the log-ratio
-    over built-up vs unbuilt cells (the two distributions overlap, so the channel
-    barely separates damage from bare ground), (3) the per-epoch agreement counts
-    (coherence-only, both, intensity-only).
-    """
-    import matplotlib.pyplot as plt
-
-    built_up = grid_gdf[grid_gdf["building_count"] > 0]
-    unbuilt = grid_gdf[grid_gdf["building_count"] == 0]
-    epoch = "E2b"
-
-    relative_loss = built_up[f"relc_{epoch}"].to_numpy(dtype=float) * 100
-    log_ratio = built_up[f"lr_{epoch}"].abs().to_numpy(dtype=float)
-    finite = np.isfinite(relative_loss) & np.isfinite(log_ratio)
-    correlation = pearson_correlation(relative_loss[finite], log_ratio[finite])
-
-    fig, axes = plt.subplots(1, 3, figsize=(17, 5.5), facecolor=config.COLOR_BG)
-    ax_scatter, ax_hist, ax_bar = axes
-    fig.subplots_adjust(left=0.05, right=0.98, top=0.79, bottom=0.13, wspace=0.26)
-    fig.text(0.5, 0.965,
-             "Intensity cross-check  -  SAR coherence loss vs backscatter log-ratio",
-             ha="center", va="center", color=config.COLOR_FG,
-             fontsize=16, fontweight="bold")
-    fig.text(0.5, 0.90,
-             f"50 m built-up cells, epoch {epoch}  |  correlation {correlation:.2f}  "
-             "|  mud-brick rubble scatters like bare soil, so intensity does not "
-             "confirm the coherence extent",
-             ha="center", color=config.COLOR_SUB, fontsize=9)
-
-    for ax in axes:
-        ax.set_facecolor(config.COLOR_BG)
-        ax.tick_params(colors=config.COLOR_SUB, labelsize=8)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-
-    ax_scatter.scatter(relative_loss[finite], log_ratio[finite],
-                       s=4, alpha=0.25, color=config.COLOR_VH, edgecolors="none")
-    ax_scatter.axhline(thresholds[epoch], color="#d62728", linewidth=1.0,
-                       linestyle="--", alpha=0.8,
-                       label=f"change threshold {thresholds[epoch]:.1f} dB")
-    ax_scatter.set_xlabel("Drift-corrected coherence loss (%)",
-                          color=config.COLOR_FG, fontsize=9)
-    ax_scatter.set_ylabel("|Intensity log-ratio| (dB)",
-                          color=config.COLOR_FG, fontsize=9)
-    ax_scatter.set_title("No relationship between the two signals",
-                         color=config.COLOR_FG, fontsize=10)
-    ax_scatter.legend(fontsize=8, frameon=True, facecolor=config.COLOR_PANEL,
-                      edgecolor=config.COLOR_LINE, labelcolor=config.COLOR_FG)
-
-    built_lr = built_up[f"lr_{epoch}"].to_numpy(dtype=float)
-    unbuilt_lr = unbuilt[f"lr_{epoch}"].to_numpy(dtype=float)
-    bins = np.linspace(-12, 12, 60)
-    ax_hist.hist(unbuilt_lr[np.isfinite(unbuilt_lr)], bins=bins, density=True,
-                 color=config.COLOR_SUB, alpha=0.55, label="unbuilt (reference)")
-    ax_hist.hist(built_lr[np.isfinite(built_lr)], bins=bins, density=True,
-                 color=config.COLOR_VH, alpha=0.65, label="built-up")
-    ax_hist.set_xlabel("Intensity log-ratio (dB)", color=config.COLOR_FG, fontsize=9)
-    ax_hist.set_ylabel("Density", color=config.COLOR_FG, fontsize=9)
-    ax_hist.set_title("Built-up barely separates from bare ground",
-                      color=config.COLOR_FG, fontsize=10)
-    ax_hist.legend(fontsize=8, frameon=True, facecolor=config.COLOR_PANEL,
-                   edgecolor=config.COLOR_LINE, labelcolor=config.COLOR_FG)
-
-    epochs = config.DAMAGE_EPOCHS
-    coh_only, both, int_only = [], [], []
-    for ep in epochs:
-        affected = built_up[f"damagec_{ep}"] >= 1
-        change = built_up[f"intensity_change_{ep}"]
-        both_count = int((affected & change).sum())
-        coh_only.append(int((affected & ~change).sum()))
-        int_only.append(int((~affected & change).sum()))
-        both.append(both_count)
-    positions = np.arange(len(epochs))
-    width = 0.6
-    ax_bar.bar(positions, coh_only, width, color=config.COLOR_VV, label="coherence only")
-    ax_bar.bar(positions, both, width, bottom=coh_only, color="#d62728",
-               label="both (confirmed)")
-    ax_bar.bar(positions, int_only, width,
-               bottom=np.array(coh_only) + np.array(both),
-               color=config.COLOR_VH, label="intensity only")
-    ax_bar.set_xticks(positions)
-    ax_bar.set_xticklabels(epochs, color=config.COLOR_FG)
-    ax_bar.set_ylabel("Built-up cells flagged", color=config.COLOR_FG, fontsize=9)
-    ax_bar.set_title("The two channels rarely agree", color=config.COLOR_FG, fontsize=10)
-    ax_bar.legend(fontsize=8, frameon=True, facecolor=config.COLOR_PANEL,
-                  edgecolor=config.COLOR_LINE, labelcolor=config.COLOR_FG)
-
-    config.ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(config.INTENSITY_FIGURE, dpi=200,
-                facecolor=config.COLOR_BG, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Figure: {config.INTENSITY_FIGURE}")
-
-
 def main() -> None:
     config.configure_gdal_proj_env()
     config.ensure_processing_dirs()
@@ -326,32 +224,11 @@ def main() -> None:
     thresholds = change_thresholds(grid_gdf)
     add_intensity_filter(grid_gdf, thresholds)
     report(grid_gdf, thresholds)
-    make_figure(grid_gdf, thresholds)
-
-    # Cache the full grid so the figure can be re-rendered without recomputing
-    # the slow zonal extraction (python classify_intensity.py figure).
-    grid_gdf.to_pickle(config.INTENSITY_GRID_CACHE)
-    print(f"Cached full grid: {config.INTENSITY_GRID_CACHE}")
 
     built_up = grid_gdf[grid_gdf["building_count"] > 0].copy()
     built_up.to_file(config.INTENSITY_FILTERED_FILE, driver="GPKG")
     print(f"\nSaved: {config.INTENSITY_FILTERED_FILE}")
 
 
-def render_from_cache() -> None:
-    """Re-render the figure from the cached full grid (seconds, no extraction)."""
-    if not config.INTENSITY_GRID_CACHE.exists():
-        raise SystemExit(
-            f"No cache at {config.INTENSITY_GRID_CACHE}\n"
-            "Run a full pass first: python classify_intensity.py"
-        )
-    grid_gdf = pd.read_pickle(config.INTENSITY_GRID_CACHE)
-    thresholds = change_thresholds(grid_gdf)
-    make_figure(grid_gdf, thresholds)
-
-
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "figure":
-        render_from_cache()
-    else:
-        main()
+    main()

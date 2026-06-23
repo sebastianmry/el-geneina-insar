@@ -230,13 +230,6 @@ INTENSITY_CHANGE_SIGMA = 2.0
 INTENSITY_VALID_MIN = 1e-6
 
 INTENSITY_FILTERED_FILE = RESULTS_DIR / "damage_grid_50m_intensity_filtered.gpkg"
-INTENSITY_FIGURE = ASSETS_DIR / "intensity_filter.png"
-
-# Cache of the full grid (built-up and unbuilt cells) with the intensity and
-# corrected-coherence columns. The zonal extraction over all scenes is the slow
-# step, so it is cached here and the figure can be re-rendered from it in seconds
-# (python classify_intensity.py figure).
-INTENSITY_GRID_CACHE = RESULTS_DIR / "intensity_grid_cache.pkl"
 
 
 ORBIT_DIRECTION = "DESCENDING"
@@ -387,16 +380,6 @@ S2_SCL_VALID = (4, 5, 7)  # vegetation, bare soil, unclassified
 
 OPTICAL_DNBR_FILE = RESULTS_DIR / "optical_dnbr_50m.gpkg"
 OPTICAL_VALIDATION_REPORT = REPO_DIR / "docs" / "OPTICAL_VALIDATION.md"
-OPTICAL_VALIDATION_FIGURE = ASSETS_DIR / "optical_validation.png"
-
-# -----------------------------------------------------------------------------
-# Dual-polarisation (VV/VH) diagnostic
-# -----------------------------------------------------------------------------
-# compare_polarisations.py characterises the cross-pol channel against the
-# co-pol channel: how correlated VV and VH coherence are (whether VH adds
-# independent information) and how differently each decorrelates in the rainy
-# season (the per-polarisation environmental retention R_env).
-POLARISATION_DIAGNOSTIC_FIGURE = ASSETS_DIR / "polarisation_diagnostic.png"
 
 # -----------------------------------------------------------------------------
 # Damage confidence / uncertainty layer (uncertainty.py)
@@ -409,8 +392,6 @@ POLARISATION_DIAGNOSTIC_FIGURE = ASSETS_DIR / "polarisation_diagnostic.png"
 # classification is unchanged; this layer flags how trustworthy each call is.
 Z_CONFIDENT = 1.645        # one-sided ~p < 0.05, "confident"
 Z_HIGH_CONFIDENCE = 2.33   # one-sided ~p < 0.01, "high confidence"
-COLORMAP_CONFIDENCE = "viridis"
-UNCERTAINTY_FIGURE = ASSETS_DIR / "damage_confidence.png"
 
 # -----------------------------------------------------------------------------
 # Area of interest

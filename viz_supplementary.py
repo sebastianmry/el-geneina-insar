@@ -40,7 +40,9 @@ def plot_pre_conflict_reference(buildings_gdf, reference) -> None:
     fig.subplots_adjust(left=0.03, right=0.97, top=0.92, bottom=0.04)
 
     ax.set_facecolor(config.COLOR_BG)
-    viz_common.draw_coherence_backdrop(ax, reference)
+    # Match the damage overview's quieter backdrop so the figure set is consistent
+    # and the coherence-binned footprints carry the panel, not the speckle.
+    viz_common.draw_coherence_backdrop(ax, reference, alpha=0.20)
 
     no_data = buildings_gdf[buildings_gdf["coh_E1"].isna()]
     if not no_data.empty:
@@ -70,8 +72,9 @@ def plot_pre_conflict_reference(buildings_gdf, reference) -> None:
                        title_fontsize=8.5)
     legend.get_title().set_color(config.COLOR_FG)
 
-    fig.text(0.5, 0.96, "Pre-Conflict Reference  -  El Geneina", ha="center",
+    fig.text(0.5, 0.96, "Pre-Conflict Reference  -  El Geneina 2023", ha="center",
              color=config.COLOR_FG, fontsize=15, fontweight="bold")
+    viz_common.add_attribution(fig, "© OpenStreetMap contributors")
 
     output_path = config.ASSETS_DIR / "pre_conflict_reference.png"
     fig.savefig(output_path, dpi=200, facecolor=config.COLOR_BG)

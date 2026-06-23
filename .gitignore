@@ -13,6 +13,9 @@ processed/
 *.img
 *.hdr
 
+# Natural Earth boundaries for the study-area locator (re-downloadable)
+naturalearth/
+
 # Building footprints (download from HOT OSM, see docs/DATA.md)
 buildings/
 *.gpkg
