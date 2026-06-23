@@ -49,6 +49,12 @@ South Sudan and Egypt.
 Remote sensing cannot stop atrocities, but public satellite data provides an
 objective, independent record of destruction when ground access is barred.
 
+![Study area](assets/study_area.png)
+
+*Study area. El Geneina lies in West Darfur on the Chad border, roughly 1,200 km
+west of Khartoum. The analysis AOI is a single Sentinel-1 IW1 subset around the
+city.*
+
 Conflict chronology, measured as the share of built-up grid cells per epoch
 (50 m grid). The coherence is estimated on both polarisations and fused (mean of
 the per-channel relative loss, see Dual-polarisation analysis). All classes are
@@ -141,6 +147,13 @@ the severity gradient.
 
 *Affected % / severe % of built-up cells per epoch (raw VV+VH fused loss, before
 drift correction). Built-up cells: 30,005 (30 m), 13,152 (50 m), 3,925 (100 m).*
+
+![Grid resolution sensitivity](assets/diag_grid_sensitivity.png)
+
+*Peak epoch (E2b) across the three cell sizes, raw classification. The affected
+extent is resolution-stable, while the severe class is smeared out at 100 m
+because total destruction is a sub-cell phenomenon. These are the raw figures;
+the drift-corrected extent is only computed for the 50 m product.*
 
 Cells outside the area of valid coherence are excluded rather than bridged.
 
@@ -282,6 +295,13 @@ damage extent lies between them. Once the season is removed, the corrected
 affected extent runs from 12 % in the dry-season offensive (E2a) to about 21 to
 24 % for the June and July epochs.
 
+![Affected extent, raw vs drift-corrected](assets/diag_damage_bracket.png)
+
+*Affected built-up share per epoch, raw (upper bound) against drift-corrected
+(lower bound). The correction barely touches the dry-season E2a but pulls the
+rainy-season E2b and E3 down sharply, because most of their raw drop is seasonal
+rather than damage.*
+
 ---
 
 ## Damage confidence
@@ -302,6 +322,13 @@ marginal edges. Pixels in a cell are spatially correlated, so z reads as a
 relative confidence rather than a strict p-value; the dominant uncertainties
 remain the seasonal bracket above and the baseline floor.
 
+![Damage confidence z-score](assets/diag_damage_confidence.png)
+
+*Distribution of the per-cell z-score over the affected cells at the peak epoch
+(E2b). Almost the entire affected population sits beyond the confident (1.645)
+and high-confidence (2.33) markers, so the fixed-threshold calls coincide with
+the statistically significant ones.*
+
 ---
 
 ## Optical cross-validation
@@ -315,6 +342,15 @@ averaged onto the same 50 m grid.
 The optical map does not reproduce the SAR damage pattern: the correlation
 between coherence loss and dNBR is 0.03, and only about 3 % of built-up cells
 cross the dNBR threshold, within the noise of the index.
+
+![SAR coherence loss vs optical dNBR](assets/diag_optical_relationship.png)
+
+*SAR coherence loss against the optical dNBR per built-up 50 m cell (peak epoch
+E2b). The dNBR cloud stays flat near zero regardless of coherence loss
+(r = 0.03), so the two signals are unrelated and the optical reference cannot
+confirm the SAR extent. A confusion matrix is deliberately avoided: it would
+treat the spectrally blind optical signal as ground truth and read as false
+agreement because both classes are dominated by intact cells.*
 
 This is a property of the fabric, not a refutation of the SAR. El Geneina is
 built from mud brick, so a destroyed building collapses into rubble that is
@@ -356,6 +392,34 @@ geometric disturbance regardless. The drift-corrected dual-pol figures stand; th
 intensity adds a second, radar-internal line of evidence that incoherent change
 detection fails on mud brick at this resolution. Full numbers:
 [docs/INTENSITY_VALIDATION.md](docs/INTENSITY_VALIDATION.md).
+
+---
+
+## Benchmarking and validation strategy
+
+Published war-damage SAR studies validate against labelled ground truth and
+report ROC curves, AUC and confusion matrices against reference damage points.
+The open-source Ukraine mapping tool (Dietrich et al., 2025) trains and tests a
+classifier on 18 UNOSAT-annotated areas; Aimaiti et al. (2022) validate the Kyiv
+signal against an optically derived reference; ElGharbawi and Zarzoura (2021)
+classify the Beirut explosion damage with a coherence hypothesis test.
+
+El Geneina has no comparable ground truth. UNOSAT analysed only the 2024 flood,
+not the 2023 conflict, and the optical reference does not carry the signal because
+mud-brick rubble is spectrally close to bare soil (see Optical cross-validation).
+External accuracy figures such as a ROC curve or a confusion matrix against truth
+are therefore unavailable here by data situation, not by omission.
+
+This pipeline replaces external validation with internal robustness. The
+drift-correction bracket reports an honest upper and lower bound instead of a
+single number, the per-cell z-score quantifies confidence without labels, the
+cell-size sensitivity shows the extent is resolution-stable, and two independent
+corroboration channels (optical dNBR and backscatter intensity) document the same
+material-driven ceiling. Three site constraints drive these choices: the
+mud-brick fabric removes the optical and intensity validation, the Sahel rainy
+season forces the drift correction, and the absence of a second orbit at the time
+removes the layover and shadow averaging that paired ascending and descending
+tracks would provide.
 
 ---
 
@@ -412,6 +476,9 @@ classify_intensity.py   Stage 3g: backscatter log-ratio cross-check + false-posi
 viz_common.py           Shared loading/clipping helpers for figures
 viz_damage_overview.py  Three-panel damage overview
 viz_supplementary.py    Pre-conflict reference figure
+viz_study_area.py       Study-area locator (Natural Earth, dark style)
+palette.py              Light theme + palette for the Altair diagnostic plots
+plot_*.py               Diagnostic plots (coherence bracket, confidence, optical, sensitivity)
 
 data/aoi/               Area-of-interest definition (GeoJSON, version-controlled)
 docs/DATA.md            How to obtain the Sentinel-1 scenes and building footprints
@@ -475,6 +542,13 @@ python classify_intensity.py      # backscatter log-ratio cross-check + filter
 
 python viz_damage_overview.py
 python viz_supplementary.py
+python viz_study_area.py          # study-area locator (downloads Natural Earth)
+
+# Light-theme diagnostic plots (Altair, read the result GeoPackages)
+python plot_damage_bracket.py
+python plot_damage_confidence.py
+python plot_optical_validation.py
+python plot_grid_sensitivity.py
 ```
 
 ## Tests
@@ -504,12 +578,25 @@ Python 3.11, ESA SNAP (esa_snappy), GDAL, rasterio, geopandas, shapely, pyproj, 
 - **Building footprints:** [Humanitarian OpenStreetMap Team (HOT)](https://www.hotosm.org/)
   and OpenStreetMap contributors, licensed under
   [ODbL](https://opendatacommons.org/licenses/odbl/).
+- **Country boundaries and rivers** (study-area locator): [Natural Earth](https://www.naturalearthdata.com/)
+  admin-0 countries and rivers/lake centerlines (50 m). Public domain; credited
+  as a courtesy, no attribution is required.
 
 ## References
+
+**Context and humanitarian reporting**
 
 1. Human Rights Watch (2024). *"The Massalit Will Not Come Home."*
 2. Yale Humanitarian Research Lab (2023). *Monitoring of Conflict-Related Damage in Sudan.*
 3. UN OCHA (2024). *Sudan Humanitarian Update.*
+
+**Method and related work** (benchmarks that informed the validation strategy)
+
+4. Bamler, R., & Hartl, P. (1998). Synthetic aperture radar interferometry. *Inverse Problems, 14*(4), R1–R54. https://doi.org/10.1088/0266-5611/14/4/001
+5. Aimaiti, Y., Sanon, C., Koch, M., Baise, L. G., & Moaveni, B. (2022). War related building damage assessment in Kyiv, Ukraine, using Sentinel-1 radar and Sentinel-2 optical images. *Remote Sensing, 14*(24), 6239. https://doi.org/10.3390/rs14246239
+6. ElGharbawi, T., & Zarzoura, F. (2021). Damage detection using SAR coherence statistical analysis, application to Beirut, Lebanon. *ISPRS Journal of Photogrammetry and Remote Sensing, 173*, 1–9. https://www.sciencedirect.com/science/article/abs/pii/S0924271621000010
+7. Dietrich, O., Peters, T., Garnot, V. S. F., Sticher, V., Whelan, T. T., Schindler, K., & Wegner, J. D. (2025). An open-source tool for mapping war destruction at scale in Ukraine using Sentinel-1 time series. *Communications Earth & Environment*. https://doi.org/10.1038/s43247-025-02183-7
+8. Huang, Q., Jin, G., Xiong, X., Ye, H., & Xie, Y. (2023). Monitoring urban change in conflict from the perspective of optical and SAR satellites: The case of Mariupol, a city in the conflict between RUS and UKR. *Remote Sensing, 15*(12), 3096. https://doi.org/10.3390/rs15123096
 
 ## License
 
