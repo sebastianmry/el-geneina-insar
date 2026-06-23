@@ -63,7 +63,9 @@ CLEANING_REPORT_PATH = REPO_DIR / "docs" / "CLEANING_REPORT.md"
 
 def ensure_processing_dirs() -> None:
     """Create the intermediate and output directories if they do not exist."""
-    for directory in (SPLIT_DIR, COREG_DIR, COH_DIR, GEOCODED_DIR, RESULTS_DIR):
+    for directory in (
+        SPLIT_DIR, COREG_DIR, COH_DIR, INTENSITY_DIR, GEOCODED_DIR, RESULTS_DIR
+    ):
         directory.mkdir(parents=True, exist_ok=True)
 
 
@@ -191,6 +193,50 @@ def epoch_coh_tif_names(epoch: str, polarisation: str) -> list[str]:
     each polarisation separately for the dual-pol fusion.
     """
     return [coh_tif_name(name[:-4], polarisation) for name in EPOCH_COH_TIFS[epoch]]
+
+
+# Calibrated backscatter (sigma0) is written as a second, incoherent change
+# channel (run_intensity.py). Each scene produces one GeoTIFF with the
+# polarisations as bands, in COH_POLARISATIONS order (band 1 = VV, band 2 = VH).
+INTENSITY_DIR = PROCESSED_DIR / "intensity"
+
+
+def intensity_tif_name(date: str) -> str:
+    """GeoTIFF name for a calibrated, terrain-corrected sigma0 scene."""
+    return f"intensity_{date}.tif"
+
+
+# Scenes averaged per epoch for the intensity log-ratio (mirrors EPOCH_COH_TIFS
+# for the coherence channel). E1 is the pre-conflict reference.
+EPOCH_INTENSITY_DATES: dict[str, list[str]] = {
+    "E1": EPOCH_1_DATES,
+    "E2a": EPOCH_2A_DATES,
+    "E2b": EPOCH_2B_DATES,
+    "E3": EPOCH_3_DATES,
+}
+
+# Intensity false-positive filter (classify_intensity.py). A coherence-flagged
+# cell is kept only when its backscatter also changed beyond what unbuilt
+# reference cells show: the per-epoch threshold is INTENSITY_CHANGE_SIGMA robust
+# standard deviations (1.4826 * MAD) of the log-ratio over unbuilt cells. Because
+# the noise is calibrated on unbuilt ground, ordinary seasonal backscatter
+# variation is absorbed into the threshold; built-up cells exceeding it carry a
+# structural change, which the rain-robust intensity channel sees but seasonal
+# decorrelation does not. The change is unsigned (collapse can raise or lower
+# backscatter), so the filter tests the magnitude of the log-ratio.
+INTENSITY_CHANGE_SIGMA = 2.0
+
+# Intensity values at or below this (linear sigma0) are treated as no-data.
+INTENSITY_VALID_MIN = 1e-6
+
+INTENSITY_FILTERED_FILE = RESULTS_DIR / "damage_grid_50m_intensity_filtered.gpkg"
+INTENSITY_FIGURE = ASSETS_DIR / "intensity_filter.png"
+
+# Cache of the full grid (built-up and unbuilt cells) with the intensity and
+# corrected-coherence columns. The zonal extraction over all scenes is the slow
+# step, so it is cached here and the figure can be re-rendered from it in seconds
+# (python classify_intensity.py figure).
+INTENSITY_GRID_CACHE = RESULTS_DIR / "intensity_grid_cache.pkl"
 
 
 ORBIT_DIRECTION = "DESCENDING"

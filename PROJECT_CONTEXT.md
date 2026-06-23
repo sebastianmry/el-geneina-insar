@@ -96,11 +96,18 @@ natural decorrelation.
   so optical change detection at 10-20 m cannot see it. The check rules out the
   raw upper bound as literal destruction but cannot confirm the lower bound; that
   would need sub-metre imagery. SAR-internal checks carry the confidence.
+- The backscatter intensity cross-check has the same ceiling
+  (`classify_intensity.py`). The dual-pol intensity log-ratio does not reproduce
+  the coherence pattern (correlation -0.11) and confirms only 1-9 % of the
+  coherence-affected cells, because mud-brick rubble scatters radar much like bare
+  soil. Used as a false-positive filter it collapses the extent to under 1 %,
+  which is the channel's sensitivity floor on this fabric, not a damage estimate.
+  The drift-corrected dual-pol headline stands; the intensity is a second,
+  radar-internal line of evidence that incoherent change detection fails on mud
+  brick at this resolution, which is the case for coherence change detection here.
 
 ## Possible extensions
 
-- Add the SAR amplitude / intensity log-ratio as a second, incoherent change
-  channel; it responds to structural change and is less drift-sensitive.
 - Add an ascending-orbit track to reduce layover/shadow ambiguity.
 - Deep-learning segmentation (e.g. U-Net on Sentinel-1) to suppress
   environmental false positives, planned as a separate project.
