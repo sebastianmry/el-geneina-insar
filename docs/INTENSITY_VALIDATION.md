@@ -16,8 +16,6 @@ For each epoch the mean sigma0 per 50 m cell is taken over the epoch's scenes, p
 
 The Pearson correlation between the drift-corrected coherence loss and the absolute intensity log-ratio over built-up cells (epoch E2b) is **-0.11**, effectively zero. The two channels are nearly independent: only 15 to 18 % of the cells with an intensity change are also coherence-affected, and only 1 to 9 % of the coherence-affected cells show a matching intensity change. The log-ratio distribution over built-up cells sits almost on top of the unbuilt reference distribution, so the channel barely separates damaged ground from bare soil.
 
-![Intensity cross-check](../assets/intensity_filter.png)
-
 ## Why a false-positive filter is not the headline
 
 The intent was to use the rain-robust intensity as a false-positive filter: keep a coherence-flagged cell only when the backscatter also changed. The filter is implemented (`damagef_<epoch>` in the output GeoPackage), but applied as the headline it collapses the drift-corrected extent to 1.1 % (E2a), 0.5 % (E2b) and 0.2 % (E3). That is not a credible damage estimate. It is the sensitivity floor of a channel that is largely blind to this building material, the same finding as the optical cross-validation and for the same physical reason.

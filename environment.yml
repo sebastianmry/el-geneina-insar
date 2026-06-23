@@ -20,6 +20,9 @@ dependencies:
   - shapely
   - pyproj
   - matplotlib
+  # Light-theme diagnostic plots (plot_*.py): Altair charts plus a KDE.
+  - altair
+  - scipy
   - tqdm
   # Zonal coherence statistics (classify_damage.py, classify_grid.py).
   - exactextract
