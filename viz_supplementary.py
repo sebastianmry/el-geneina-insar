@@ -37,7 +37,7 @@ def plot_pre_conflict_reference(buildings_gdf, reference) -> None:
     """E1 coherence binned per building footprint."""
     print("\nPre-conflict reference panel...")
     fig, ax = plt.subplots(1, 1, figsize=(12, 13), facecolor=config.COLOR_BG)
-    fig.subplots_adjust(left=0.02, right=0.88, top=0.91, bottom=0.07)
+    fig.subplots_adjust(left=0.03, right=0.97, top=0.92, bottom=0.04)
 
     ax.set_facecolor(config.COLOR_BG)
     viz_common.draw_coherence_backdrop(ax, reference)
@@ -70,11 +70,11 @@ def plot_pre_conflict_reference(buildings_gdf, reference) -> None:
                        title_fontsize=8.5)
     legend.get_title().set_color(config.COLOR_FG)
 
-    fig.text(0.5, 0.955, "Pre-Conflict Reference  -  El Geneina", ha="center",
+    fig.text(0.5, 0.96, "Pre-Conflict Reference  -  El Geneina", ha="center",
              color=config.COLOR_FG, fontsize=15, fontweight="bold")
 
     output_path = config.ASSETS_DIR / "pre_conflict_reference.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=config.COLOR_BG)
+    fig.savefig(output_path, dpi=200, facecolor=config.COLOR_BG)
     plt.close(fig)
     print(f"  Saved: {output_path}")
 
