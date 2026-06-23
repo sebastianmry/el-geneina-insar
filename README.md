@@ -55,12 +55,12 @@ the per-channel relative loss, see Dual-polarisation analysis). All classes are
 drift-corrected for rainy-season decorrelation, a single consistent scale; the
 higher raw values are reported as an upper bound under Baseline robustness:
 
-| Epoch | Period | Affected built-up area | Severe |
-| :--- | :--- | ---: | ---: |
-| E1 | Mar-Apr 2023 | pre-conflict baseline | - |
-| E2a | Apr-May 2023 | 12 % (initial offensive and arson) | 0.1 % |
-| E2b | Jun 2023 | 21 % (peak destruction phase) | 0.0 % |
-| E3 | Jul 2023 | 24 % (continued change, RSF control) | 0.0 % |
+| Epoch | Period | Affected built-up area |
+| :--- | :--- | ---: |
+| E1 | Mar-Apr 2023 | pre-conflict baseline |
+| E2a | Apr-May 2023 | 12 % (initial offensive and arson) |
+| E2b | Jun 2023 | 21 % (peak destruction phase) |
+| E3 | Jul 2023 | 24 % (continued change, RSF control) |
 
 Each epoch measures active surface change within its own window against the
 pre-conflict reference, not a cumulative total, so E3 reflects continued July
@@ -71,9 +71,7 @@ Across the 137,545 quality-controlled HOT OSM building footprints
 ([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal runs
 from 12 % during the dry-season first offensive (E2a) to about 21 to 24 % for the
 June and July epochs. The dry-season E2a figure is the single most robust value
-because the seasonal correction barely moves it. The corrected severe class is
-small once the seasonal signal is removed: destruction past 60 % excess coherence
-loss is rare and spatially clustered rather than pervasive. The raw uncorrected
+because the seasonal correction barely moves it. The raw uncorrected
 extent runs to about two thirds, but that is dominated by rainy-season
 decorrelation rather than destruction, and high-resolution optical imagery shows
 nothing near that extent (see Optical cross-validation).
@@ -163,6 +161,11 @@ Sentinel-1 SLC (.SAFE.zip)
                        and polarisation (VV + VH)
         |
         v
+  run_intensity.py     Calibration (sigma0) -> TOPSAR-Deburst -> Subset (AOI) ->
+                       Terrain-Correction  ->  backscatter GeoTIFF per scene
+                       (VV + VH bands), the incoherent change channel
+        |
+        v
   check_quality.py     validate projection, bands and valid-pixel counts
         |
         v
@@ -185,6 +188,7 @@ Sentinel-1 SLC (.SAFE.zip)
   compare_polarisations.py     VV/VH correlation + per-channel rain robustness
   uncertainty.py               per-cell damage confidence (signal-to-noise z)
   validate_optical.py          Sentinel-2 dNBR cross-check (validation ceiling)
+  classify_intensity.py        backscatter log-ratio cross-check (validation ceiling)
         |
         v
   viz_*.py             figures (damage overview, pre-conflict reference)
@@ -224,8 +228,6 @@ directly. Each is normalised against its own pre-conflict E1 baseline into a
 relative loss, and the two relative losses are then averaged (mean fusion). This
 runs through both the raw classification and the drift correction, so every
 reported figure is the fused VV+VH result.
-
-![Dual-polarisation diagnostic](assets/polarisation_diagnostic.png)
 
 ---
 
@@ -295,7 +297,7 @@ Two things follow. First, the fixed thresholds are not arbitrary: the cells the
 (z >= 1.6 for 100 %, z >= 2.3 for 97 to 99 %), while non-affected cells sit at
 z near 0. The threshold extent and the significant extent coincide. Second, there
 is a confidence gradient within the affected area (median z about 4.3, rising past
-15 in the core), so the map distinguishes a high-confidence damage core from
+15 in the core), so the z-score separates a high-confidence damage core from
 marginal edges. Pixels in a cell are spatially correlated, so z reads as a
 relative confidence rather than a strict p-value; the dominant uncertainties
 remain the seasonal bracket above and the baseline floor.
@@ -314,8 +316,6 @@ The optical map does not reproduce the SAR damage pattern: the correlation
 between coherence loss and dNBR is 0.03, and only about 3 % of built-up cells
 cross the dNBR threshold, within the noise of the index.
 
-![Optical cross-validation](assets/optical_validation.png)
-
 This is a property of the fabric, not a refutation of the SAR. El Geneina is
 built from mud brick, so a destroyed building collapses into rubble that is
 spectrally almost identical to the surrounding bare soil; at 10 to 20 m
@@ -327,6 +327,35 @@ with the corrected lower bound, but it cannot positively confirm that bound: a
 definitive optical validation would need sub-metre imagery (UNOSAT or Maxar
 damage points), not Sentinel-2. Confidence therefore rests on the internal
 checks above. Full numbers: [docs/OPTICAL_VALIDATION.md](docs/OPTICAL_VALIDATION.md).
+
+---
+
+## Intensity cross-check
+
+A second independent check uses the radar itself rather than optical imagery
+(`classify_intensity.py`). Coherence measures decorrelation, which the rains
+lower scene-wide; the backscatter intensity (sigma0) is an incoherent channel
+that reacts to physical structure and barely responds to seasonal moisture. Per
+epoch the dual-pol intensity log-ratio against E1 is averaged onto the same 50 m
+grid, and a structural change is flagged where its magnitude exceeds the natural
+variability of the unbuilt reference cells.
+
+The intensity does not reproduce the coherence damage pattern: the correlation
+between coherence loss and the intensity log-ratio is -0.11, the two channels are
+nearly independent, and only a small fraction of coherence-affected cells show a
+matching backscatter change.
+
+The motivation was to filter out rainy-season false positives by keeping only
+coherence calls that the rain-robust intensity confirms. The filter is
+implemented, but applied as the headline it collapses the affected extent to
+under 1 %, which is the sensitivity floor of a channel that is blind to this
+building material, not a damage estimate. The reason is the same as for the
+optical check: mud-brick rubble scatters radar much like bare soil, so most
+collapses produce only a weak backscatter change, while coherence responds to the
+geometric disturbance regardless. The drift-corrected dual-pol figures stand; the
+intensity adds a second, radar-internal line of evidence that incoherent change
+detection fails on mud brick at this resolution. Full numbers:
+[docs/INTENSITY_VALIDATION.md](docs/INTENSITY_VALIDATION.md).
 
 ---
 
@@ -342,18 +371,21 @@ checks above. Full numbers: [docs/OPTICAL_VALIDATION.md](docs/OPTICAL_VALIDATION
   coherence over bare and vegetated ground independently of the conflict. This
   inflates the E2b and E3 affected figures, so those epochs read as an upper
   bound. The drift correction above brackets the effect with a lower bound from
-  stable unbuilt reference areas.
+  stable unbuilt reference areas. A backscatter intensity cross-check could not
+  filter these false positives (see Intensity cross-check): mud-brick rubble
+  scatters radar much like bare soil, so the incoherent channel is largely blind
+  to the destruction.
 - **12-day revisit.** Sub-epoch timing of individual events cannot be resolved.
 - **Sub-pixel footprints.** The grid is the honest reporting unit, but the
   underlying resolution still cannot characterise an isolated 15 m2 structure on
   its own.
 
-**Future work.** Beyond the dual-pol fusion, drift correction and confidence
-layer already in place, the natural extensions are a SAR amplitude (intensity
-log-ratio) channel to complement coherence, an ascending-orbit track to reduce
-layover ambiguity, and a deep-learning segmentation step (for example a U-Net on
-Sentinel-1) to suppress environmental false positives. The deep-learning
-direction is planned as a separate project rather than part of this pipeline.
+**Future work.** Beyond the dual-pol fusion, drift correction, confidence layer
+and intensity cross-check already in place, the natural extensions are an
+ascending-orbit track to reduce layover ambiguity and a deep-learning
+segmentation step (for example a U-Net on Sentinel-1) to suppress environmental
+false positives. The deep-learning direction is planned as a separate project
+rather than part of this pipeline.
 
 ---
 
@@ -365,6 +397,7 @@ snap.py                 ESA SNAP / esa_snappy bridge wrapper
 
 preprocess.py           Stage 1: TOPSAR-Split + Apply-Orbit-File (+ subswath/burst helpers)
 run_insar.py            Stage 2: coherence GeoTIFF per pair and polarisation (VV+VH)
+run_intensity.py        Stage 2b: calibrated backscatter (sigma0) GeoTIFF per scene
 check_quality.py        GeoTIFF quality check
 clean_buildings.py      Stage 0: HOT OSM footprint quality control + removal report
 classify_damage.py      Stage 3: shared coherence-sampling + damage-class logic (VV+VH fusion)
@@ -374,6 +407,7 @@ correct_baseline_drift.py  Stage 3c: rainy-season drift correction (per-pol R_en
 compare_polarisations.py   Stage 3e: VV/VH correlation + per-channel rain robustness
 uncertainty.py          Stage 3f: per-cell damage confidence map (signal-to-noise z)
 validate_optical.py     Stage 3d: Sentinel-2 dNBR cross-validation (streamed COGs)
+classify_intensity.py   Stage 3g: backscatter log-ratio cross-check + false-positive filter
 
 viz_common.py           Shared loading/clipping helpers for figures
 viz_damage_overview.py  Three-panel damage overview
@@ -428,6 +462,7 @@ Then run the stages in order:
 ```bash
 python preprocess.py        # TOPSAR-Split + orbit (needs SNAP + the .SAFE scenes)
 python run_insar.py         # coherence GeoTIFFs, VV+VH (slow: ~20-40 min per job)
+python run_intensity.py     # backscatter sigma0 GeoTIFFs, VV+VH (~5-10 min per scene)
 python check_quality.py     # validate outputs
 python clean_buildings.py   # footprint quality control + removal report
 python classify_grid.py     # 50 m grid classification + sensitivity table
@@ -436,6 +471,7 @@ python check_baseline.py        # E1 reference stability + false-positive floor
 python correct_baseline_drift.py  # rainy-season drift correction (VV+VH fused)
 python compare_polarisations.py   # VV/VH diagnostic figure
 python uncertainty.py             # per-cell damage confidence map
+python classify_intensity.py      # backscatter log-ratio cross-check + filter
 
 python viz_damage_overview.py
 python viz_supplementary.py
