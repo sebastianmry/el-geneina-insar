@@ -55,12 +55,12 @@ the per-channel relative loss, see Dual-polarisation analysis). All classes are
 drift-corrected for rainy-season decorrelation, a single consistent scale; the
 higher raw values are reported as an upper bound under Baseline robustness:
 
-| Epoch | Period | Affected built-up area | Severe |
-| :--- | :--- | ---: | ---: |
-| E1 | Mar-Apr 2023 | pre-conflict baseline | - |
-| E2a | Apr-May 2023 | 12 % (initial offensive and arson) | 0.1 % |
-| E2b | Jun 2023 | 21 % (peak destruction phase) | 0.0 % |
-| E3 | Jul 2023 | 24 % (continued change, RSF control) | 0.0 % |
+| Epoch | Period | Affected built-up area |
+| :--- | :--- | ---: |
+| E1 | Mar-Apr 2023 | pre-conflict baseline |
+| E2a | Apr-May 2023 | 12 % (initial offensive and arson) |
+| E2b | Jun 2023 | 21 % (peak destruction phase) |
+| E3 | Jul 2023 | 24 % (continued change, RSF control) |
 
 Each epoch measures active surface change within its own window against the
 pre-conflict reference, not a cumulative total, so E3 reflects continued July
@@ -71,9 +71,7 @@ Across the 137,545 quality-controlled HOT OSM building footprints
 ([cleaning report](docs/CLEANING_REPORT.md)), the corrected affected signal runs
 from 12 % during the dry-season first offensive (E2a) to about 21 to 24 % for the
 June and July epochs. The dry-season E2a figure is the single most robust value
-because the seasonal correction barely moves it. The corrected severe class is
-small once the seasonal signal is removed: destruction past 60 % excess coherence
-loss is rare and spatially clustered rather than pervasive. The raw uncorrected
+because the seasonal correction barely moves it. The raw uncorrected
 extent runs to about two thirds, but that is dominated by rainy-season
 decorrelation rather than destruction, and high-resolution optical imagery shows
 nothing near that extent (see Optical cross-validation).
