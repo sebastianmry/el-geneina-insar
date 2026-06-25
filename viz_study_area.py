@@ -20,17 +20,18 @@ import config
 OUT_PATH = config.ASSETS_DIR / "study_area.png"
 NE_DIR = config.DATA_ROOT / "naturalearth"
 ADMIN0 = NE_DIR / "ne_50m_admin_0_countries.shp"
+ADMIN1 = NE_DIR / "ne_10m_admin_1_states_provinces.shp"
 RIVERS = NE_DIR / "ne_50m_rivers_lake_centerlines.shp"
 
 WEB_MERCATOR = "EPSG:3857"
 
-# Main panel extent in lon/lat: Sudan and named neighbours, pulled north to the
-# Nile delta and the Mediterranean coast. The eastern margin (Red Sea / Arabia)
-# plus this northern band leave room for the inset clear of Sudan.
-MAIN_EXTENT_LONLAT = (13.0, 46.0, 0.0, 33.0)
-# Inset box in lon/lat, flush to the top-right corner. The northern band (lat
-# 26-33) sits well above Sudan (max ~22 N), so the locator never overlaps it.
-INSET_BOX_LONLAT = (39.0, 46.0, 26.0, 33.0)
+# Main panel extent in lon/lat: tightened onto Sudan so the country fills the
+# frame, while the eastern margin still keeps the Red Sea (and the Arabian coast
+# beyond it) in view on the right.
+MAIN_EXTENT_LONLAT = (17.0, 43.0, 6.0, 25.0)
+# Inset box in lon/lat, flush to the top-right corner over the Red Sea / Arabia,
+# clear of Sudan.
+INSET_BOX_LONLAT = (37.4, 42.8, 19.3, 24.4)
 # Inset map content: Africa with Europe and the Middle East in view.
 INSET_VIEW_LONLAT = (-20.0, 60.0, -38.0, 60.0)
 # Neighbours labelled at the representative point of their visible part.
@@ -41,6 +42,21 @@ LABEL_COUNTRIES = {
 # Spell out abbreviated Natural Earth names for the labels.
 DISPLAY_NAMES = {"S. Sudan": "South Sudan", "Central African Rep.": "Central African Rep."}
 RIVER_COLOR = "#4a6fa5"
+
+# West Darfur (Natural Earth admin-1 name) and the capital for spatial context.
+WEST_DARFUR_NAME = "Western Darfur"
+WD_FILL = "#3a2517"
+WD_EDGE = "#e07b39"
+KHARTOUM_LON, KHARTOUM_LAT = 32.53, 15.50
+# Red Sea label, placed mid-water and rotated along the basin's NW-SE trend.
+RED_SEA_LONLAT = (40.0, 18.3)
+RED_SEA_COLOR = "#6f8fc0"
+
+
+def _merc_xy(lon, lat):
+    """Project a single lon/lat point to Web Mercator and return (x, y)."""
+    p = gpd.GeoSeries.from_xy([lon], [lat], crs="EPSG:4326").to_crs(WEB_MERCATOR)
+    return p.x.iloc[0], p.y.iloc[0]
 
 
 def _to_mercator(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -74,20 +90,29 @@ def draw_main(ax, countries: gpd.GeoDataFrame) -> None:
     sudan = countries[countries["NAME"] == "Sudan"]
     sudan.plot(ax=ax, facecolor="#241a14", edgecolor=config.COLOR_SUB, linewidth=1.0)
 
+    _draw_west_darfur(ax)
     _draw_rivers(ax, extent_box)
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
 
-    # Label each neighbour at the representative point of its visible part, so
-    # the text stays inside the frame even when the country centroid is outside.
+    # Red Sea label, rotated along the basin so it reads as water, not land.
+    rs_x, rs_y = _merc_xy(*RED_SEA_LONLAT)
+    ax.text(rs_x, rs_y, "RED SEA", ha="center", va="center", rotation=-42,
+            rotation_mode="anchor", color=RED_SEA_COLOR, fontsize=9,
+            fontstyle="italic", fontweight="bold", zorder=5)
+
+    # Centre each label on its country: the centroid of the visible part, so the
+    # text sits in the middle of the area on screen and stays inside the frame.
     for _, row in countries.iterrows():
         if row["NAME"] not in LABEL_COUNTRIES:
             continue
         visible = row.geometry.intersection(extent_box)
         if visible.is_empty:
             continue
-        point = visible.representative_point()
+        point = visible.centroid
+        if not visible.contains(point):       # concave shapes: keep it on land
+            point = visible.representative_point()
         is_sudan = row["NAME"] == "Sudan"
         label = DISPLAY_NAMES.get(row["NAME"], row["NAME"]).upper()
         ax.text(point.x, point.y, label, ha="center", va="center",
@@ -95,14 +120,75 @@ def draw_main(ax, countries: gpd.GeoDataFrame) -> None:
                 fontsize=12 if is_sudan else 10,
                 fontweight="bold" if is_sudan else "normal", zorder=5)
 
-    # City marker only (no AOI box).
+    # Khartoum: a quiet secondary marker so the eye stays on El Geneina.
+    kh_x, kh_y = _merc_xy(KHARTOUM_LON, KHARTOUM_LAT)
+    ax.scatter(kh_x, kh_y, s=28, color=config.COLOR_SUB, edgecolor=config.COLOR_BG,
+               linewidth=0.8, zorder=6)
+    ax.annotate("Khartoum", (kh_x, kh_y), textcoords="offset points",
+                xytext=(8, 5), color=config.COLOR_SUB, fontsize=9, zorder=7)
+
+    # El Geneina: the focal point, brighter and larger than any other marker.
     city = gpd.GeoSeries.from_xy([config.TARGET_LON], [config.TARGET_LAT],
                                  crs="EPSG:4326").to_crs(WEB_MERCATOR)
-    ax.scatter(city.x, city.y, s=80, color="#f5c518", edgecolor=config.COLOR_BG,
-               linewidth=1.0, zorder=6)
-    ax.annotate("El Geneina", (city.x.iloc[0], city.y.iloc[0]),
-                textcoords="offset points", xytext=(9, 7),
-                color=config.COLOR_FG, fontsize=10, fontweight="bold", zorder=7)
+    cx, cy = city.x.iloc[0], city.y.iloc[0]
+    _draw_aoi_reticle(ax, cx, cy)
+    ax.scatter(cx, cy, s=95, color="#f5c518", edgecolor=config.COLOR_BG,
+               linewidth=1.2, zorder=7)
+    ax.annotate("El Geneina", (cx, cy), textcoords="offset points",
+                xytext=(11, 8), color=config.COLOR_FG, fontsize=12,
+                fontweight="bold", zorder=8,
+                path_effects=[pe.withStroke(linewidth=2.5, foreground=config.COLOR_BG)])
+
+
+def _draw_aoi_reticle(ax, cx, cy) -> None:
+    """Draw a GEOINT-style corner-bracket reticle around the analysis AOI.
+
+    The true AOI is only a few kilometres across, invisible at this scale, so the
+    bracket is drawn at a fixed on-screen size as a callout that frames the city.
+    """
+    bounds = config.load_aoi_bounds()
+    aoi_cx = (bounds["west"] + bounds["east"]) / 2
+    aoi_cy = (bounds["south"] + bounds["north"]) / 2
+    ax_cx, ax_cy = _merc_xy(aoi_cx, aoi_cy)
+    half = 115000.0          # bracket half-size in metres (tight frame on the city)
+    arm = half * 0.45        # length of each corner arm
+    x0, x1 = ax_cx - half, ax_cx + half
+    y0, y1 = ax_cy - half, ax_cy + half
+    style = dict(color="#f5c518", linewidth=1.3, alpha=0.85, zorder=6,
+                 solid_capstyle="round")
+    for bx, sx in ((x0, 1), (x1, -1)):
+        for by, sy in ((y0, 1), (y1, -1)):
+            ax.plot([bx, bx + sx * arm], [by, by], **style)
+            ax.plot([bx, bx], [by, by + sy * arm], **style)
+
+
+def _draw_west_darfur(ax) -> None:
+    """Highlight the West Darfur state polygon and label it from the east.
+
+    Space above the state is cramped, so the label sits further east in open
+    desert with a leader arrow pointing back to the highlighted region.
+    """
+    if not ADMIN1.exists():
+        return
+    states = gpd.read_file(ADMIN1, columns=["adm0_a3", "name", "geometry"])
+    wd = states[(states["adm0_a3"] == "SDN") & (states["name"] == WEST_DARFUR_NAME)]
+    if wd.empty:
+        return
+    wd = wd.to_crs(WEB_MERCATOR)
+    wd.plot(ax=ax, facecolor=WD_FILL, edgecolor=WD_EDGE, linewidth=1.2,
+            alpha=0.95, zorder=3)
+
+    target_x, target_y = _merc_xy(24.3, 14.95)  # north-east edge of the state
+    label_x, label_y = _merc_xy(25.6, 15.45)    # open ground just east of Darfur
+    # Text and leader are drawn separately so the arrow starts exactly at the
+    # vertical centre of the "W" (left edge of the label) instead of docking to
+    # the lower corner of the text box.
+    ax.text(label_x, label_y, "WEST DARFUR", ha="left", va="center",
+            color=WD_EDGE, fontsize=10, fontweight="bold", zorder=7,
+            path_effects=[pe.withStroke(linewidth=2.5, foreground=config.COLOR_BG)])
+    ax.annotate("", xy=(target_x, target_y), xytext=(label_x, label_y),
+                arrowprops=dict(arrowstyle="->", color=WD_EDGE, linewidth=1.2,
+                                patchA=None, shrinkA=2, shrinkB=4), zorder=6)
 
 
 def _draw_rivers(ax, extent_box) -> None:
@@ -113,7 +199,44 @@ def _draw_rivers(ax, extent_box) -> None:
     rivers = rivers[rivers.intersects(extent_box)]
     if rivers.empty:
         return
-    rivers.clip(extent_box).plot(ax=ax, color=RIVER_COLOR, linewidth=1.0, alpha=1.0)
+    clipped = rivers.clip(extent_box)
+    clipped.plot(ax=ax, color=RIVER_COLOR, linewidth=1.0, alpha=1.0)
+    _label_rivers(ax, clipped)
+
+
+# Natural Earth river names -> the label to print, and where along the visible
+# centreline (0 = start, 1 = end) to place it so labels avoid the confluence.
+RIVER_LABELS = {
+    "Nile": ("NILE", 0.5),
+    "El Bahr el Abyad": ("WHITE NILE", 0.45),
+    "El Bahr el Azraq": ("BLUE NILE", 0.55),
+    "Atbara": ("ATBARA", 0.5),
+}
+
+
+def _label_rivers(ax, clipped: gpd.GeoDataFrame) -> None:
+    """Place a small rotated label along each named major river."""
+    import math
+
+    for ne_name, (label, frac) in RIVER_LABELS.items():
+        parts = clipped[clipped["name"] == ne_name]
+        if parts.empty:
+            continue
+        line = max(parts.geometry, key=lambda g: g.length)   # longest visible reach
+        if line.length == 0:
+            continue
+        pt = line.interpolate(frac, normalized=True)
+        a = line.interpolate(max(frac - 0.04, 0.0), normalized=True)
+        b = line.interpolate(min(frac + 0.04, 1.0), normalized=True)
+        angle = math.degrees(math.atan2(b.y - a.y, b.x - a.x))
+        if angle > 90:
+            angle -= 180
+        elif angle < -90:
+            angle += 180
+        ax.text(pt.x, pt.y, label, ha="center", va="center", rotation=angle,
+                rotation_mode="anchor", color=RIVER_COLOR, fontsize=7.5,
+                fontstyle="italic", fontweight="bold", zorder=5,
+                path_effects=[pe.withStroke(linewidth=2.0, foreground=config.COLOR_BG)])
 
 
 def draw_inset(parent_ax, countries: gpd.GeoDataFrame) -> None:
@@ -163,8 +286,8 @@ def main() -> None:
     draw_inset(ax, countries)
     # Title set inside the frame, centred over the Mediterranean between the top
     # edge and the Egyptian coast (rather than in a margin above the map).
-    ax.text(0.5, 0.972, "Study area", transform=ax.transAxes, ha="center",
-            va="center", color=config.COLOR_FG, fontsize=14, fontweight="bold",
+    ax.text(0.5, 0.99, "Study area", transform=ax.transAxes, ha="center",
+            va="top", color=config.COLOR_FG, fontsize=15, fontweight="bold",
             path_effects=[pe.withStroke(linewidth=2.5, foreground=config.COLOR_BG)],
             zorder=9)
 

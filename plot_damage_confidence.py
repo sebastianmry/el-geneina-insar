@@ -13,6 +13,7 @@ import altair as alt
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from scipy.stats import gaussian_kde
 
 import config
 import palette
@@ -42,13 +43,24 @@ def load_confidence_df() -> pd.DataFrame:
 
 
 def build_chart(confidence_df: pd.DataFrame) -> alt.Chart:
+    # Evaluate the KDE ourselves so the curve runs back to zero at both ends
+    # (no clipping) and so we know its peak: the y-domain then gets headroom that
+    # keeps the curve clear of the threshold labels along the top.
+    z = confidence_df["z"].to_numpy(dtype=float)
+    z_max = float(np.ceil(z.max()))
+    grid = np.linspace(0.0, z_max, 400)
+    density_values = gaussian_kde(z)(grid)
+    density_df = pd.DataFrame({"z": grid, "density": density_values})
+    y_max = float(density_values.max()) * 1.18
+
     density = (
-        alt.Chart(confidence_df)
-        .transform_density("z", as_=["z", "density"], extent=[-1, 6])
+        alt.Chart(density_df)
         .mark_area(opacity=0.6, interpolate="monotone", color=palette.DAMAGE_CLASSES["stable"])
         .encode(
-            x=alt.X("z:Q", title="Damage confidence  z = signal / noise"),
-            y=alt.Y("density:Q", title="Density", axis=alt.Axis(labels=False, ticks=False)),
+            x=alt.X("z:Q", title="Damage confidence  z = signal / noise",
+                    scale=alt.Scale(domain=[0.0, z_max], nice=False)),
+            y=alt.Y("density:Q", title="Density", axis=alt.Axis(labels=False, ticks=False),
+                    scale=alt.Scale(domain=[0.0, y_max], nice=False)),
         )
     )
 
@@ -58,16 +70,19 @@ def build_chart(confidence_df: pd.DataFrame) -> alt.Chart:
         .mark_rule(color=palette.MUTED, strokeDash=[4, 4], size=1)
         .encode(x="z:Q")
     )
-    # Anchor the lower marker to the left of its line and the upper one to the
-    # right, so the two labels do not collide between the close thresholds.
+    # Anchor "confident" to the left of its rule and "high confidence" to the
+    # right of its rule, so neither word is crossed by a line. The font is sized
+    # down so "confident" fits left of its rule without overrunning the axis,
+    # keeping the x-domain tight at zero (no empty negative margin).
+    label_size = 8
     confident_label = (
         alt.Chart(marks_df.iloc[[0]])
-        .mark_text(align="right", dx=-5, dy=6, fontSize=11, color=palette.MUTED, baseline="top")
+        .mark_text(align="right", dx=-4, dy=6, fontSize=label_size, color=palette.INK, baseline="top")
         .encode(x="z:Q", y=alt.value(0), text="label:N")
     )
     high_label = (
         alt.Chart(marks_df.iloc[[1]])
-        .mark_text(align="left", dx=5, dy=6, fontSize=11, color=palette.MUTED, baseline="top")
+        .mark_text(align="left", dx=4, dy=6, fontSize=label_size, color=palette.INK, baseline="top")
         .encode(x="z:Q", y=alt.value(0), text="label:N")
     )
 

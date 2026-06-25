@@ -63,13 +63,29 @@ def build_chart(bracket_df: pd.DataFrame) -> alt.Chart:
     )
     bars = base.mark_bar(cornerRadiusEnd=2).encode(
         y=alt.Y("affected_pct:Q", title="Affected built-up cells (%)", scale=alt.Scale(domain=[0, 70])),
-        color=alt.Color("method:N", scale=scale, legend=alt.Legend(title=None, orient="top-left")),
+        color=alt.Color("method:N", scale=scale, legend=None),
     )
     labels = base.mark_text(dy=-6, fontSize=11, color=palette.INK).encode(
         y="affected_pct:Q",
         text=alt.Text("affected_pct:Q", format=".0f"),
     )
-    return (bars + labels).properties(width=480, height=300)
+
+    # Manual legend in data coordinates: the two rows sit centred inside the
+    # 60-70 gridline band, with each label vertically centred on its dot.
+    legend_df = pd.DataFrame({"method": order, "y": [67.0, 63.0], "label": order})
+    legend_dots = (
+        alt.Chart(legend_df)
+        .mark_point(filled=True, size=140, opacity=1)
+        .encode(y=alt.Y("y:Q"), x=alt.value(40),
+                color=alt.Color("method:N", scale=scale, legend=None))
+    )
+    legend_text = (
+        alt.Chart(legend_df)
+        .mark_text(align="left", baseline="middle", fontSize=11, color=palette.INK)
+        .encode(y=alt.Y("y:Q"), x=alt.value(54), text="label:N")
+    )
+
+    return (bars + labels + legend_dots + legend_text).properties(width=480, height=300)
 
 
 def main() -> None:

@@ -47,9 +47,9 @@ NEUTRAL_TEXT = "#8b949e"
 # Kühles Off-White plus Monospace-Typografie für einen ruhigen, technischen
 # Eindruck, bewusster Kontrast zu den dunklen Karten.
 LIGHT_BG = "#f4f5f6"
-INK = "#1f2329"        # nahezu Anthrazit für Text und Achsen
+INK = "#000000"        # Schwarz für sämtliche Schrift
 GRID = "#e2e4e7"       # dezentes kühles Gitter
-MUTED = "#6b7177"      # Sekundärtext, Achsentitel
+MUTED = "#6b7177"      # gestrichelte Schwellenlinien (keine Schrift)
 
 FONT = "Consolas, JetBrains Mono, SF Mono, Menlo, monospace"
 
@@ -71,10 +71,10 @@ def apply_light_theme(chart):
         .configure_view(strokeWidth=0, continuousWidth=520, continuousHeight=300)
         .configure_axis(
             labelColor=INK,
-            titleColor=MUTED,
+            titleColor=INK,
             titleFontSize=11,
             titleFontWeight="normal",
-            labelFontSize=10,
+            labelFontSize=11,
             gridColor=GRID,
             gridWidth=0.6,
             domainColor="#c4c8cd",
@@ -86,10 +86,12 @@ def apply_light_theme(chart):
         )
         .configure_legend(
             labelColor=INK,
-            titleColor=MUTED,
+            titleColor=INK,
             labelFontSize=11,
-            titleFontSize=12,
+            titleFontSize=11,
             symbolType="circle",
+            symbolSize=130,
+            labelBaseline="middle",
             padding=8,
         )
         .configure_title(color=INK, fontSize=14, fontWeight=500, anchor="start", dy=-6)

@@ -48,7 +48,7 @@ def build_chart(points_df: pd.DataFrame) -> alt.Chart:
         alt.Chart(points_df)
         .mark_circle(size=9, opacity=0.18, color=palette.DAMAGE_CLASSES["stable"], clip=True)
         .encode(
-            x=alt.X("loss:Q", title="SAR coherence loss (%)", scale=alt.Scale(domain=[-10, 100])),
+            x=alt.X("loss:Q", title="SAR coherence loss (%)", scale=alt.Scale(domain=[-10, 70])),
             y=alt.Y("dnbr:Q", title="Optical dNBR (pre - post)", scale=alt.Scale(domain=[-0.3, 0.5])),
         )
     )
@@ -65,19 +65,19 @@ def build_chart(points_df: pd.DataFrame) -> alt.Chart:
         .encode(x="x:Q")
     )
     label = (
-        alt.Chart(pd.DataFrame({"text": [f"r (loss, dNBR) = {correlation:.2f}"], "x": [98.0], "y": [0.46]}))
-        .mark_text(align="right", baseline="top", fontSize=12, color=palette.INK)
+        alt.Chart(pd.DataFrame({"text": [f"r (loss, dNBR) = {correlation:.2f}"], "x": [68.0], "y": [0.46]}))
+        .mark_text(align="right", baseline="top", fontSize=11, color=palette.INK)
         .encode(x="x:Q", y="y:Q", text="text:N")
     )
     # Label the two decision thresholds so they are not mistaken for statistics.
     dnbr_label = (
         alt.Chart(pd.DataFrame({"text": ["optical: dNBR ≥ 0.10"], "x": [-9.0], "y": [config.DNBR_DESTRUCTION_THRESHOLD]}))
-        .mark_text(align="left", baseline="bottom", dy=-2, fontSize=10, color=OPTICAL_BLUE)
+        .mark_text(align="left", baseline="bottom", dy=-2, fontSize=11, color=OPTICAL_BLUE)
         .encode(x="x:Q", y="y:Q", text="text:N")
     )
     loss_label = (
         alt.Chart(pd.DataFrame({"text": ["SAR: loss ≥ 20 %"], "x": [AFFECTED_LOSS_PCT], "y": [-0.27]}))
-        .mark_text(align="left", baseline="bottom", dx=4, fontSize=10, color=palette.MUTED)
+        .mark_text(align="left", baseline="bottom", dx=4, fontSize=11, color=palette.DAMAGE_CLASSES["stable"])
         .encode(x="x:Q", y="y:Q", text="text:N")
     )
 
