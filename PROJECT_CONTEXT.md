@@ -6,7 +6,7 @@ Coherence Change Detection project. Intended for anyone extending the pipeline.
 ## Goal
 
 Produce a defensible damage classification for El Geneina during the 2023
-conflict using only cloud-independent SAR data. The statistical unit is a
+conflict using only open SAR data. The statistical unit is a
 resolution-matched 50 m grid, since individual HOT OSM footprints are sub-pixel
 (median ~15 m2 against a 100 m2 pixel). The output is a GeoPackage of grid cells
 and a building layer that inherits each cell's per-epoch coherence, relative loss
@@ -14,9 +14,12 @@ and damage class, plus a small set of figures.
 
 ## Why SAR coherence
 
-Optical assessment is unreliable here: persistent cloud cover, smoke from fires
-and no ground access. Interferometric coherence measures how stable the radar
-backscatter is between two acquisitions. Intact, rigid structures stay coherent;
+With no independent ground access, the damage can only be assessed from orbit,
+and optical imagery struggles here for a specific reason: collapsed mud-brick is
+spectrally almost indistinguishable from the surrounding bare soil, so even
+cloud-free scenes miss it (confirmed by the null dNBR cross-validation). SAR
+responds to the physical change instead. Interferometric coherence measures how
+stable the radar backscatter is between two acquisitions. Intact, rigid structures stay coherent;
 collapse, rubble and burning decorrelate the signal. Comparing each epoch
 against a pre-conflict reference (E1) isolates conflict-driven change from
 natural decorrelation.
@@ -91,9 +94,12 @@ natural decorrelation.
 - The 12-day revisit means sub-epoch timing of individual events cannot be
   resolved.
 - A single descending track has no ascending counterpart, so layover and
-  shadow in El Geneina's dense, low-rise fabric are not averaged out. Affected
-  buildings on the sensor-facing or far side of a block can be over- or
-  under-represented in the coherence signal independently of actual damage.
+  shadow in El Geneina's dense, low-rise fabric are not averaged out. Pairing an
+  ascending track is the standard fix, but it was not available: Sentinel-1B
+  failed in December 2021 and left no ascending coverage of El Geneina for the
+  2023 study period. Affected buildings on the sensor-facing or far side of a
+  block can be over- or under-represented in the coherence signal independently
+  of actual damage.
 - Optical validation has a ceiling here (`validate_optical.py`). A Sentinel-2
   dNBR check on phenology-matched dry-season scenes does not reproduce the SAR
   pattern (correlation 0.03): mud-brick rubble is spectrally close to bare soil,
@@ -112,6 +118,11 @@ natural decorrelation.
 
 ## Possible extensions
 
-- Add an ascending-orbit track to reduce layover/shadow ambiguity.
-- Deep-learning segmentation (e.g. U-Net on Sentinel-1) to suppress
-  environmental false positives, planned as a separate project.
+The main direction is a supervised deep-learning segmentation step that learns
+the destruction signature from labelled examples and separates it from the
+environmental decorrelation the coherence proxy cannot filter. It would train on
+consistent damage ground truth across several affected areas and multiple time
+windows so it generalises rather than fitting one site or season. Newer free
+radar data would help: NISAR L-band decorrelates more slowly, and Sentinel-1C
+restores the revisit and ascending coverage missing during the 2023 study
+period. Planned as a separate project.

@@ -4,12 +4,15 @@ Building-level damage mapping for El Geneina (al-Junaynah), West Darfur, during
 the 2023 conflict, derived from Sentinel-1 InSAR coherence loss.
 
 Between April and July 2023, El Geneina was the site of large-scale violence and
-destruction during the Rapid Support Forces (RSF) offensive in West Darfur.
-Persistent cloud cover and the absence of ground access make optical assessment
-unreliable. Synthetic Aperture Radar (SAR) works regardless of cloud cover or
-daylight, and interferometric **coherence** is highly sensitive to physical change on the
-ground: when a building is destroyed, the radar surface decorrelates and
-coherence drops. This project turns that signal into a damage map of the city.
+destruction during the Rapid Support Forces (RSF) offensive in West Darfur. With
+no independent ground access, the damage can only be assessed from orbit, and
+optical imagery struggles here for a specific reason: collapsed mud-brick is spectrally
+almost indistinguishable from the surrounding bare soil, so even cloud-free
+scenes miss it (see Optical cross-validation). Synthetic Aperture Radar (SAR)
+responds to the physical change instead. Interferometric **coherence** is highly
+sensitive to structural disturbance on the ground: when a building is destroyed,
+the radar surface decorrelates and coherence drops. This project turns that
+signal into a damage map of the city.
 
 The statistical unit is a **resolution-matched grid** rather than the individual
 building. HOT OSM footprints in El Geneina have a median area near 15 m2, well
@@ -37,9 +40,10 @@ paramilitary Rapid Support Forces (RSF) has driven one of the world's most sever
 humanitarian crises. In West Darfur the violence took on a targeted ethnic
 dimension. The RSF, which evolved from the Janjaweed militias, used tactics seen
 in the genocide twenty years earlier: deliberate arson, snipers targeting
-civilians at water sources, and total sieges. Human Rights Watch has documented a
-systematic campaign of ethnic cleansing against the Masalit, Fur and Zaghawa
-communities.
+civilians at water sources, and total sieges. Independent open-source
+investigators, including Yale's Humanitarian Research Lab and the Centre for
+Information Resilience, have documented a systematic campaign of ethnic cleansing
+against the Masalit, Fur and Zaghawa communities.
 
 The destruction in El Geneina followed a calculated strategy of displacement. As
 this analysis shows, the western districts, predominantly inhabited by the
@@ -50,7 +54,8 @@ because of their Masalit identity, and hundreds of thousands fled toward Chad,
 South Sudan and Egypt.
 
 Remote sensing cannot stop atrocities, but public satellite data provides an
-objective, independent record of destruction when ground access is barred.
+objective, independent record of destruction where no observer can reach the
+ground.
 
 ![Study area](assets/study_area.png)
 
@@ -453,17 +458,24 @@ tracks would provide.
   its own.
 - **Single-track layover and shadow.** El Geneina's dense, low-rise urban
   fabric produces layover and shadow in a single descending geometry, and this
-  stack has no ascending counterpart to average it out (see Benchmarking and
-  validation strategy). Affected buildings on the sensor-facing or far side of a
-  block may be over- or under-represented in the coherence signal
-  independently of actual damage.
+  stack has no ascending counterpart to average it out. Pairing an ascending
+  track with the descending one is standard practice to cancel this effect, but
+  it was not an option here: Sentinel-1B failed in December 2021 and left no
+  ascending coverage of El Geneina for the 2023 study period, so the geometry
+  could not be reconstructed from the archive. Affected buildings on the
+  sensor-facing or far side of a block may therefore be over- or
+  under-represented in the coherence signal independently of actual damage.
 
 **Future work.** Beyond the dual-pol fusion, drift correction, confidence layer
-and intensity cross-check already in place, the natural extensions are an
-ascending-orbit track to reduce layover ambiguity and a deep-learning
-segmentation step (for example a U-Net on Sentinel-1) to suppress environmental
-false positives. The deep-learning direction is planned as a separate project
-rather than part of this pipeline.
+and intensity cross-check already in place, the natural next step is a supervised
+deep-learning segmentation stage that learns the destruction signature from
+labelled examples and separates it from the environmental decorrelation the
+coherence proxy cannot filter. It would rely on consistent damage ground truth
+across several affected areas and is planned as a separate project rather than
+part of this pipeline. Newer free radar data would support any follow-up: NISAR
+adds L-band coherence, which decorrelates more slowly over vegetation and bare
+ground, and Sentinel-1C restores the revisit density and ascending coverage that
+were missing during the 2023 study period.
 
 ---
 
@@ -590,11 +602,11 @@ Python 3.11, ESA SNAP (esa_snappy), GDAL, rasterio, geopandas, shapely, pyproj, 
 
 ## References
 
-**Context and humanitarian reporting**
+**Context and humanitarian reporting** (satellite and open-source documentation)
 
-1. Human Rights Watch (2024). *"The Massalit Will Not Come Home."*
-2. Yale Humanitarian Research Lab (2023). *Monitoring of Conflict-Related Damage in Sudan.*
-3. UN OCHA (2024). *Sudan Humanitarian Update.*
+1. Yale Humanitarian Research Lab (2023–). *Monitoring of conflict-related damage in Sudan.* https://medicine.yale.edu/news-article/yales-humanitarian-research-lab-responds-as-violence-escalates-in-sudan/
+2. Centre for Information Resilience — Sudan Witness (2023–). *Verifying and mapping conflict damage in Sudan, with El Geneina case studies.* https://www.info-res.org/sudan-witness/
+3. Bellingcat (2023–). *Sudan investigations.* https://www.bellingcat.com/tag/sudan/
 
 **Method and related work** (benchmarks that informed the validation strategy)
 
